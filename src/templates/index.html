@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat with AI</title>
+  <!-- Include HTMX library -->
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <style>
+    /* Optional minimal styling */
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+    .messanger { background: #fff; max-width: 600px; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    header, footer { padding: 1rem; background: #007BFF; color: #fff; }
+    main { padding: 1rem; background: #fafafa; min-height: 300px; }
+    form { display: flex; gap: 0.5rem; }
+    input[type="text"], select { flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #ccc; }
+    button { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #0056b3; color: #fff; cursor: pointer; }
+    button:hover { background: #004494; }
+    #alert { margin-top: 0.5rem; text-align: center; }
+    
+  </style>
+</head>
+<body>
+  <div class="messanger">
+    <header>
+      <h1>Chat with AI</h1>
+      <form
+          hx-post="/model_name/"
+          hx-trigger="submit"
+          hx-target="#alert"
+          hx-swap="outerHTML"
+          hx-include="#model_x">
+        <select name="model" id="model_x">
+          <option value="qwen2:0.5b">qwen2:0.5b</option>
+          <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+        </select>
+        <button type="submit">Change Model</button>
+      </form>
+    </header>
+    
+    <main>
+      <div id="messages"></div>
+    </main>
+
+    <footer>
+      <form
+          hx-post="/send_message/"
+          hx-trigger="submit"
+          hx-target="#messages"
+          hx-swap="outerHTML"
+          hx-include="#input">
+        <input type="text" id="input" name="question" placeholder="Enter your message">
+        <button id="send" type="submit">Send</button>
+      </form>
+      <form 
+          hx-post="/uploadfile/" 
+          hx-encoding="multipart/form-data"
+          hx-trigger="submit"
+          hx-target="#alert"
+          hx-swap="outerHTML">
+        <input type="file" id="file" name="file">
+        <button id="send_question" type="submit">Upload</button>
+      </form>
+      <div id="alert"></div>
+    </footer>
+  </div>
+
+  
+</body>
+</html>

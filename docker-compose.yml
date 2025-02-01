@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build: ./src
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+    restart: always
+    depends_on:
+      - ollama
+    networks:
+      - ollama-docker
+    environment:
+      - OLLAMA_HOST=http://ollama:11434  # Ensure app communicates with Ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "7869:11434"
+    volumes:
+      - .:/code
+      - ./ollama/ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: always
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    entrypoint: >
+      /bin/sh -c "ollama serve & sleep 5 && ollama run qwen2:0.5b"
+    networks:
+      - ollama-docker
+
+networks:
+  ollama-docker:
+    driver: bridge
+
+  

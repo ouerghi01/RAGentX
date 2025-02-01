@@ -1,0 +1,71 @@
+<div id="messages">
+    <style>
+        #messages {
+      padding: 1rem;
+      background: #fafafa;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    /* Base Message Styles */
+    .message {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      transition: background-color 0.3s ease;
+    }
+    
+    .message-icon {
+      font-size: 1.5rem;
+      margin: 0 0.5rem;
+      color: #007BFF;
+    }
+    
+    .message-content {
+      max-width: 80%;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #e2e3e5;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+    
+    /* Styling for User Messages */
+    .message.user {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+    
+    .message.user .message-content {
+      background: #d1e7dd; /* Light green background */
+    }
+    
+    /* Styling for AI Messages */
+    .message.ai {
+      flex-direction: row;
+      text-align: left;
+    }
+    
+    .message.ai .message-content {
+      background: #e2e3e5; /* Light gray background */
+    }
+    </style>
+    <!-- User Message -->
+    <div class="message user">
+      <div class="message-icon">
+        <i class="fas fa-user"></i>
+      </div>
+      <div class="message-content">
+        <p>{{ question }}</p>
+      </div>
+    </div>
+    <!-- AI Message -->
+    <div class="message ai">
+      <div class="message-icon">
+        <i class="fas fa-robot"></i>
+      </div>
+      <div class="message-content">
+        <p>{{ answer }}</p>
+      </div>
+    </div>
+  </div>
