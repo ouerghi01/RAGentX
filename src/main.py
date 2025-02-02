@@ -2,6 +2,8 @@ from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 import json
 
+import uuid
+from datetime import datetime
 import uvicorn
 from fastapi.concurrency import run_in_threadpool
 from typing import Annotated
@@ -20,14 +22,16 @@ from fastapi import FastAPI,Request,UploadFile,File,Form
 
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
+import uuid
+from datetime import datetime
 
 def initialize_database_session():
     cloud_config = {
-        'secure_connect_bundle': 'secure-connect-store-base.zip'
+    'secure_connect_bundle': '/app/secure-connect-store-base.zip'
     }
 
-    with open("token.json") as f:
-        secrets = json.load(f)
+    with open("/app/token.json") as f:
+       secrets = json.load(f)
 
     CLIENT_ID = secrets["clientId"]
     CLIENT_SECRET = secrets["secret"]
@@ -44,7 +48,18 @@ def initialize_database_session():
         vector BLOB  -- Store the embeddings (vector representation of the document)
     );
     """
+    response_table = """
+    CREATE TABLE IF NOT EXISTS store_key.response_table (
+        partition_id UUID PRIMARY KEY,
+        question TEXT,  
+        answer TEXT,
+        timestamp TIMESTAMP,
+        evaluation BOOLEAN
+        
+    );
+    """
     session.execute(create_table)
+    session.execute(response_table)
     return session
 
 def load_pdf_documents(path_file):
@@ -52,8 +67,9 @@ def load_pdf_documents(path_file):
     docs = loader.load()
     return docs
 def create_retriever_from_documents(session, docs):
-    #model_name = "sentence-transformers/paraphrase-MiniLM-L6-v2"  
-    model_name = "intfloat/e5-small"
+    model_name = "sentence-transformers/paraphrase-MiniLM-L6-v2"  
+    # intfloat/e5-small is a smaller model that can be used for faster inference
+    #model_name = "intfloat/e5-small"
     model_kwargs = {'device': 'cpu'}  # Use CPU for inference
     encode_kwargs = {'normalize_embeddings': True}  # Normalizing the embeddings for better comparison
     #HuggingFaceEmbeddings
@@ -71,18 +87,28 @@ def create_retriever_from_documents(session, docs):
     cassandra_store :Cassandra = Cassandra.from_documents(documents=documents, embedding=hf, session=session, keyspace=keyspace, table_name=table)
     retrieval=cassandra_store.as_retriever(search_type="mmr", search_kwargs={'k': 10, 'lambda_mult': 0.5})
     return retrieval
-def build_q_a_process(retrieval,model_name="qwen2:0.5b"):
+def get_last_responses(session):
+    query = "SELECT * FROM store_key.response_table LIMIT 10"
+    rows = session.execute(query)
+    text=""
+    for row in rows:
+        text+=f"Question: {row.question}\nAnswer: {row.answer}\nTimestamp: {row.timestamp}\nEvaluation: {row.evaluation}\n\n"
+    return text
+def build_q_a_process(retrieval,model_name="deepseek-r1:1.5b"):
+    global session
 
-    llm = Ollama(model=model_name, base_url="http://ollama:11434")
-
-    prompt = """
-    Tu es un assistant utile qui répond aux questions basées sur le contexte fourni. Le document que tu consultes est un guide détaillé sur l'utilisation d'un site web, de ses outils, de services SaaS, ou de théories associées.
-    Instructions:
-    1. Utilise SEULEMENT le contexte ci-dessous pour générer la réponse.
-    2. Si la réponse n'est pas dans le contexte, dis "Je ne sais pas".
-    3. Garde les réponses courtes, pas plus de 3 phrases.
-    4. Si le contexte parle d'un outil ou d'une fonctionnalité spécifique d'un site web ou d'une plateforme SaaS, assure-toi d'expliquer son usage et son objectif.
-    5. N'introduis pas d'informations au-delà du contexte fourni. 
+    llm = Ollama(model=model_name, base_url="http://localhost:11434")
+    history_responses_str= get_last_responses(session)
+    pp = f"""
+    1. Utilise uniquement le contexte fourni ci-dessous pour formuler ta réponse.
+    2. Si l'information demandée n'est pas présente dans le contexte, réponds par "Je ne sais pas".
+    3. Fournis des réponses concises, ne dépassant pas trois phrases.
+    4. Si le contexte mentionne un outil ou une fonctionnalité spécifique d'un site web ou d'une plateforme SaaS, explique son utilisation et son objectif.
+    5. Ne rajoute aucune information qui ne soit pas incluse dans le contexte fourni.
+    6. Si possible, donne une recommandation pertinente.
+    
+    """
+    prompt = pp + """
     Contexte: {context}
     Question: {question}
     Réponse:
@@ -122,7 +148,7 @@ model_name = "qwen2:0.5b"
 UPLOAD_DIR = Path("uploads")  
 UPLOAD_DIR.mkdir(exist_ok=True)  
 session = None
-default_path_file = Path("code/uploads/data.pdf")
+default_path_file = Path("/app/uploads/data.pdf")
 Retrieval = None
 qa = None
 
@@ -175,7 +201,11 @@ async def set_model_name(request: Request, model: str = Form(...)):
     if qa is not None:
         qa = build_q_a_process(Retrieval, model_name)
     return {"message": f"Model name has been set to {model_name}"}
-
+@app.get("/evaluate_response/")
+async def evaluate_response(request: Request, partition_id: str, evaluation: bool):
+    query=f"UPDATE store_key.response_table SET evaluation={evaluation} WHERE partition_id={partition_id}"
+    session.execute(query)
+    #return templates.TemplateResponse("index.html", {"request": request})
 @app.post("/send_message/")
 async def send_message(request: Request, question: str = Form(...)):
     global qa
@@ -186,10 +216,20 @@ async def send_message(request: Request, question: str = Form(...)):
         )
     
     answer = await run_in_threadpool(qa.run, question)
+    if session is not None:
+        partition_id = uuid.uuid1()
+        now=datetime.now()
+        session.execute(
+        "INSERT INTO store_key.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
+        (partition_id,question, answer,now)
+        )
+    
 
     return templates.TemplateResponse(
         "messages.html",
-        {"request": request, "answer": answer, "question": question}
+        {"request": request, "answer": answer, "question": question,"partition_id":partition_id,"timestamp":now,"evaluation":False}
     )
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+# https://github.com/bhattbhavesh91/pdf-qa-astradb-langchain/blob/main/requirements.txt
+# https://github.com/michelderu/chat-with-your-data-in-cassandra/blob/main/docker-compose.yml
