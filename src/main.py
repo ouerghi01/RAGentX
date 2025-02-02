@@ -23,10 +23,10 @@ from fastapi.responses import JSONResponse
 
 def initialize_database_session():
     cloud_config = {
-        'secure_connect_bundle': '/home/aziz/IA-DeepSeek-RAG-IMPL/src/sec/secure-connect-store-base.zip'
+        'secure_connect_bundle': 'secure-connect-store-base.zip'
     }
 
-    with open("/home/aziz/IA-DeepSeek-RAG-IMPL/src/sec/token.json") as f:
+    with open("token.json") as f:
         secrets = json.load(f)
 
     CLIENT_ID = secrets["clientId"]
@@ -122,7 +122,7 @@ model_name = "qwen2:0.5b"
 UPLOAD_DIR = Path("uploads")  
 UPLOAD_DIR.mkdir(exist_ok=True)  
 session = None
-default_path_file = Path("/home/aziz/IA-DeepSeek-RAG-IMPL/src/uploads/data.pdf")
+default_path_file = Path("code/uploads/data.pdf")
 Retrieval = None
 qa = None
 
@@ -132,11 +132,11 @@ templates = None
 async def startup_event():
     print("Starting up")
     global session, Retrieval, qa, templates
-    session = initialize_database_session()
+    session=await run_in_threadpool(initialize_database_session)
     templates = Jinja2Templates(directory="templates")
     if default_path_file.exists():
         Retrieval = create_retriever_from_documents(session, load_pdf_documents(default_path_file))
-        qa = build_q_a_process(Retrieval, model_name)
+        qa = await run_in_threadpool(build_q_a_process,Retrieval, model_name)
 
 @app.on_event("shutdown")
 async def shutdown_event():
