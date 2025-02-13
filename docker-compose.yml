@@ -30,7 +30,7 @@ services:
       - OLLAMA_KEEP_ALIVE=24h
       - OLLAMA_HOST=0.0.0.0
     entrypoint: >
-      /bin/sh -c "ollama serve & sleep 5 && ollama run qwen2:0.5b"
+      /bin/sh -c "ollama serve & sleep 5 &&ollama run llama3.3"
     networks:
       - ollama-docker
 
