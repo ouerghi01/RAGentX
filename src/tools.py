@@ -481,3 +481,25 @@ print("******************************************//////*************************
 #)
 #docs = loader.load()
 #print(docs)
+
+
+
+
+#from langchain.chains import ConversationalRetrievalChain
+#from langchain.prompts.prompt import PromptTemplate
+
+# Template setup
+#template = """
+#You are HR assistant to select best candidates based on the resume based on the user input. It is important to return resume ID when you find the promising resume. Start with AAAAAAAAAAAAA
+#Here is context including list of resume information: {context}
+#user input: {question} 
+#AI Assistant: start with AAAAAAAAAAAAA
+#[/INST]"""
+#PROMPT = PromptTemplate(input_variables=["question", "context"], template=template)
+
+# Chain initialization
+#conversation_chain = ConversationalRetrievalChain.from_llm(
+    #llm=llm,
+    #retriever=db.as_retriever(search_kwargs={'k': 4}),
+    #condense_question_prompt = PROMPT,
+#)
