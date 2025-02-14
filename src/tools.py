@@ -24,6 +24,9 @@ import threading
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import uuid
+import math
+import re
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 app = FastAPI()
@@ -107,8 +110,9 @@ def create_retriever_from_documents(session, docs):
             documents.extend(chunks)  
     keyspace = "store_key"
     table="vectores"
-    cassandra_store :Cassandra = Cassandra.from_documents(documents=documents, embedding=hf, session=session, keyspace=keyspace, table_name=table)
-    retrieval = cassandra_store.as_retriever(search_type="similarity", search_kwargs={'k': 10})
+    cassandra_vecstore :Cassandra = Cassandra(embedding=hf, session=session, keyspace=keyspace, table_name="vectores_new")
+    cassandra_vecstore.add_documents(documents)
+    retrieval = cassandra_vecstore.as_retriever(search_type="similarity", search_kwargs={'k': 10})
     return retrieval
 def get_last_responses(session):
     query = "SELECT * FROM store_key.response_table LIMIT 10"
@@ -232,7 +236,7 @@ def execute_question_answering(model_name, initialize_database_session, load_pdf
     session=initialize_database_session()
     Retrieval=create_retriever_from_documents(session,docs)
     retrieved_docs= Retrieval.get_relevant_documents(question)
-    qa,llm_chain,document_prompt=build_q_a_process(Retrieval,model_name)
+    _,llm_chain,document_prompt=build_q_a_process(Retrieval,model_name)
 
 # Ensure context formatting is correct by adding spaces between words
     context = "\n\n".join([document_prompt.format(page_content=" ".join(doc.page_content.split()), source=doc.metadata.get('source', 'N/A')) for doc in retrieved_docs])
@@ -298,22 +302,182 @@ def execute_question_answering(model_name, initialize_database_session, load_pdf
         print("Raw output:", cleaned_steps)
 
 #execute_question_answering(model_name, initialize_database_session, load_pdf_documents, create_retriever_from_documents, build_q_a_process, question)
-session=initialize_database_session()
-#session.execute("TRUNCATE store_key.response_table")
-# Get all tables in the store_key keyspace
-tables = session.execute("SELECT table_name FROM system_schema.tables WHERE keyspace_name = 'store_key';")
-for table in tables:
-    print(f"Table: {table.table_name}")
+def fetch_relevant_documents_from_cassandra():
+    template = """
+I am an AI assistant specialized in providing clear, precise, and useful answers. 
+Your role is to decide which tables from the Cassandra database schema should be used based on the question provided.
+Instructions:
+- Review the provided schema
+- List only relevant table names
+- Separate multiple tables with commas
+- Do not include explanations
+- Do not provide additional information
+- Do not use indice
+response format: give the table names separated by commas
+Schema: 
+{schema}
+Question: 
+{question}
+Response:
+"""
+    QA_CHAIN_PROMPT = PromptTemplate(
+        template=template,
+        input_variables=[ "schema","question"]
+        )
+    llm=Ollama(model="qwen2.5:3b", base_url="http://localhost:11434")
+    llm_chain = LLMChain(
+        llm=llm, 
+        prompt=QA_CHAIN_PROMPT, 
+        callbacks=None, 
+        verbose=True
+    )
+#session=initialize_database_session()
 
-# If you still want to truncate the tables
-session.execute("TRUNCATE store_key.vectores")
-docs=load_pdf_documents()
-retr= create_retriever_from_documents(session, docs)
-CASSANDRA_KEYSPACE = "store_key"
-loader = CassandraLoader(
-    table="vectores",
-    session=session,
-    keyspace=CASSANDRA_KEYSPACE,
-)
-docs = loader.load()
-print(docs)
+    session = Cluster(["0.0.0.0"],port=9042).connect( )
+
+    if session is None:
+        session=initialize_database_session()
+#session.execute("TRUNCATE store_key.response_table")
+    schema = session.execute("SELECT table_name FROM system_schema.tables WHERE keyspace_name='store_key';")
+    schema_str = ""
+    for i,row in enumerate(schema):
+        if i==0:
+            schema_str+=f"description table: table for storing all responses and questions    table_name: {row.table_name}\n"
+        else:
+            schema_str+=f"description table: table for all documents that guide users through the marketplace, table_name: {row.table_name}\n"
+   
+    question = "Comment puis-je valider ou refuser une offre dans l'interface contenant les détails de l'offre tels que la Désignation, la Date de création, la Date de début d'offre, la Date de fin d'offre, la Promotion et la Quantité d'offre ?"
+    response_expected = """Pour valider l'offre, il suffit de cliquer sur le bouton d'action Valider.
+Pour refuser l'offre, il suffit de cliquer sur le bouton d'action Refus."""
+    tabels_nedeed = llm_chain.run(schema=schema_str, question=question).split(",")
+    documents=[]
+    CASSANDRA_KEYSPACE = "store_key"
+
+    for table in tabels_nedeed:
+        table_name=table.strip()
+        loader=CassandraLoader(
+        table=table_name,
+        session=session,
+        keyspace=CASSANDRA_KEYSPACE,
+    )
+        docs=loader.load()
+        if table_name=="response_table":
+            for doc in docs:
+                if doc is not None:
+                    doc.metadata['source'] = f'cassandra:{CASSANDRA_KEYSPACE}.{table_name}'
+        documents.extend(docs)
+    return session,llm,question,response_expected,documents
+
+session = Cluster(["localhost"],port=9042).connect( )
+import cassio
+cassio.init(session=session, keyspace="store_key")
+
+create_table = """
+    CREATE TABLE IF NOT EXISTS store_key.vectores (
+        partition_id UUID PRIMARY KEY,
+        document_text TEXT,  -- Text extracted from the PDF
+        document_content BLOB,  -- PDF content stored as binary data
+        vector BLOB  -- Store the embeddings (vector representation of the document)
+    );
+    """
+response_table = """
+    CREATE TABLE IF NOT EXISTS store_key.response_table (
+        partition_id UUID PRIMARY KEY,
+        question TEXT,  
+        answer TEXT,
+        timestamp TIMESTAMP,
+        evaluation BOOLEAN
+        
+    );
+    """
+question = "Comment puis-je valider ou refuser une offre dans l'interface contenant les détails de l'offre tels que la Désignation, la Date de création, la Date de début d'offre, la Date de fin d'offre, la Promotion et la Quantité d'offre ?"
+response_expected = """Pour valider l'offre, il suffit de cliquer sur le bouton d'action Valider.
+Pour refuser l'offre, il suffit de cliquer sur le bouton d'action Refus."""
+
+   
+llm=Ollama(model="qwen2.5:3b", base_url="http://localhost:11434")
+    
+session.execute(create_table)
+session.execute(response_table)
+docs= load_pdf_documents()
+
+Retrieval= create_retriever_from_documents(session, docs)
+retrieved_docs= Retrieval.get_relevant_documents(question)
+document_prompt = PromptTemplate(
+        template="Context:\ncontent:{page_content}\nsource:{source}",  
+        input_variables=["page_content", "source"]  
+    )
+# Ensure context formatting is correct by adding spaces between words
+context = "\n\n".join([document_prompt.format(page_content=" ".join(doc.page_content.split()), source=doc.metadata.get('source', 'N/A')) for doc in retrieved_docs])
+template = """
+Tu es un assistant IA intégré à un système multi-agent collaboratif, conçu pour fournir des réponses claires, précises et utiles. Chaque agent joue un rôle spécifique et coopère pour offrir la meilleure assistance possible. Respecte strictement les consignes suivantes :
+    🔹 📜 Principes fondamentaux :
+        - Ne t’appuie que sur les informations du contexte ci-dessous pour répondre.
+        - Si une information est absente, indique-le explicitement avec "Je ne sais pas." et propose une solution pour l’obtenir.
+        - Travaille en synergie avec les autres agents en te concentrant sur ta spécialisation et en complétant leurs contributions.
+        - Fournis des réponses courtes et impactantes (maximum trois phrases), sans sacrifier la clarté ni la pertinence.
+        - Si un outil ou une plateforme est mentionné(e), explique son objectif et son utilisation de manière simple et pratique.
+        - Ne fais aucune supposition : toute réponse doit être directement appuyée par le contexte fourni.
+        - Si pertinent, ajoute une recommandation actionnable pour aider l’utilisateur à mieux comprendre ou agir efficacement.
+    🔹 🤖 Rôles des agents spécialisés :
+        - 🧠 Agent_Analyse : Décompose la question et identifie les informations essentielles du contexte.
+        - 📊 Agent_Expertise : Fournit une interprétation experte des données disponibles.
+        - ✅ Agent_Validation : Vérifie la précision, la clarté et la pertinence de la réponse finale.
+        - 🔍 Agent_Recherche : Explore le contexte pour repérer des informations cachées ou indirectement liées.
+        - 🎯 Agent_Optimisation : Reformule la réponse pour la rendre plus concise, fluide et impactante.
+        - 📌 Agent_Contextuel : Assure que la réponse respecte bien les contraintes spécifiques du contexte.
+        - 💡 Agent_Recommandation : Ajoute des conseils ou des suggestions pratiques pour aider l’utilisateur à agir efficacement.
+        - 🛠 Agent_Technique : Si la question concerne un outil, une plateforme ou une technologie, explique son fonctionnement de manière détaillée et pratique.
+        - 📖 Agent_Pédagogique : Simplifie les concepts complexes et les explique de manière accessible.
+    📂 Contexte :
+    {context}
+    ❓ Question :
+    {question}
+    📝 Réponse (collaborative) :
+"""
+QA_CHAIN_PROMPT = PromptTemplate(
+        template=template,
+        input_variables=[ "context","question"]
+    )
+llm_chain = LLMChain(
+        llm=llm, 
+        prompt=QA_CHAIN_PROMPT, 
+        callbacks=None, 
+        verbose=True
+    )
+response=llm_chain.run(context=context,question=question)
+WORD = re.compile(r"\w+")
+def text_to_vector(text):
+    words = WORD.findall(text)
+    return Counter(words)
+def get_cosine(vec1, vec2):
+    intersection = set(vec1.keys()) & set(vec2.keys())
+    numerator = sum([vec1[x] * vec2[x] for x in intersection])
+    sum1 = sum([vec1[x] ** 2 for x in vec1.keys()])
+    sum2 = sum([vec2[x] ** 2 for x in vec2.keys()])
+    denominator = math.sqrt(sum1) * math.sqrt(sum2)
+    if not denominator:
+        return 0.0
+    else:
+        return float(numerator) / denominator
+response_expected_vector = text_to_vector(response_expected)
+response_vector = text_to_vector(response)
+cosine = get_cosine(response_expected_vector, response_vector)
+print("******************************************response******************************************")
+print(response)
+print("******************************************response_expected******************************************")
+print(response_expected)
+print("******************************************cosine******************************************")
+print(cosine)
+print("******************************************//////******************************************")
+
+#session.execute("TRUNCATE store_key.vectores")
+#docs=load_pdf_documents()
+#retr= create_retriever_from_documents(session, docs)
+#loader = CassandraLoader(
+#    table="vectores",
+#    session=session,
+#    keyspace=CASSANDRA_KEYSPACE,
+#)
+#docs = loader.load()
+#print(docs)

@@ -1,3 +1,6 @@
 .venv
  
 /src/uploads/*
+/src/token.json/
+/src/sec/
+ollama/
