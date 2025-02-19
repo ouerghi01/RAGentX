@@ -1,14 +1,25 @@
 from tools import *
-llm_chain = None
+origins = [
+    "http://192.168.100.66:3000/",
+    "http://localhost:3000/",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.on_event("startup")
 async def startup_event():
     print("Starting up")
-    global session, Retrieval, qa, templates,llm_chain
+    global session, Retrieval, qa, templates
     session=await run_in_threadpool(initialize_database_session)
     templates = Jinja2Templates(directory="templates")
     if default_path_file.exists():
         Retrieval = create_retriever_from_documents(session, load_pdf_documents())
-        qa,llm_chain = await run_in_threadpool(build_q_a_process,Retrieval, model_name)
+        qa = await run_in_threadpool(build_q_a_process,Retrieval, model_name)
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -41,11 +52,11 @@ async def upload_file(file: Annotated[UploadFile, File(description="A file read 
 
 @app.post("/model_name/") 
 async def set_model_name(request: Request, model: str = Form(...)):
-    global model_name , qa,llm_chain
+    global model_name , qa
     
     model_name = model
     if qa is not None:
-        qa,llm_chain = build_q_a_process(Retrieval, model_name)
+        qa = build_q_a_process(Retrieval, model_name)
     return {"message": f"Model name has been set to {model_name}"}
 @app.get("/evaluate_response/")
 async def evaluate_response(_: Request, partition_id: str, evaluation: bool):
@@ -63,32 +74,29 @@ async def send_message(request: Request, question: str = Form(...)):
         "messages.html",
         {"request": request, "answer": response.answer, "question": question,"partition_id":response.partition_id,"timestamp":response.timestamp,"evaluation":True}
     )
-    global qa,llm_chain
-    if not default_path_file.exists() or qa is None:
-        return JSONResponse(
-            status_code=400,
-            content={"message": "No document uploaded"}
-        )
-    
-    steps:str = llm_chain.run(question=question)
-    print(steps)
+    query=question
+    query_sql = 'SELECT question, answer FROM store_key.response_table WHERE partition_id >= minTimeuuid(0) LIMIT 5  ALLOW FILTERING'
 
-    question_augmented = f" question : {question}  \n 🛠 **Étapes de résolution fournies par l’Agent_Analyse** :{str(steps)}"
-    
-    final_answer = await run_in_threadpool(qa.run, question_augmented)
-    
+    result_set = session.execute(query_sql)
+    print(result_set)
+    chat_history = []
+    for row in result_set:
+        chat_history.append(("human",row.question))
+        chat_history.append(("assistant",row.answer))
+    final_answer= qa.invoke({"input": query, "chat_history": chat_history})
+
     if session is not None:
         partition_id = uuid.uuid1()
         now=datetime.now()
         session.execute(
         "INSERT INTO store_key.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
-        (partition_id,question, final_answer,now)
+        (partition_id,question, final_answer["answer"],now)
         )
     
 
     return templates.TemplateResponse(
         "messages.html",
-        {"request": request, "answer": final_answer, "question": question,"partition_id":partition_id,"timestamp":now,"evaluation":False}
+        {"request": request, "answer": final_answer["answer"], "question": question,"partition_id":partition_id,"timestamp":now,"evaluation":False}
     )
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
