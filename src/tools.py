@@ -6,6 +6,7 @@ from langchain.chains import (
     create_history_aware_retriever,
     create_retrieval_chain,
 )
+from langchain.retrievers import BM25Retriever, EnsembleRetriever
 from typing import Literal
 from langchain.pydantic_v1 import BaseModel,Field
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -51,26 +52,16 @@ qa = None
 templates = None
 
 def initialize_database_session():
-    cloud_config = {
-    'secure_connect_bundle': 'C:/Users/Ons/IA-Ollama-RAG-IMPL/src/sec/secure-connect-store-base.zip'
-    }
-
-    with open("C:/Users/Ons/IA-Ollama-RAG-IMPL/src/sec/token.json") as f:
-       secrets = json.load(f)
-
-    CLIENT_ID = secrets["clientId"]
-    CLIENT_SECRET = secrets["secret"]
-
-    try:
-        auth_provider = PlainTextAuthProvider(CLIENT_ID, CLIENT_SECRET)
-        cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
-        session = cluster.connect()
-    except Exception as e:
-        session = Cluster(["localhost"],port=9042).connect( )
-        cassio.init(session=session, keyspace="store_key")
+    
+    session = Cluster(["localhost"],port=9042).connect( )
+    cassio.init(session=session, keyspace="store_key")
         #print(f"Failed to connect to Cassandra: {str(e)}")
         
-    
+    create_key_space="""
+    CREATE KEYSPACE IF NOT EXISTS store_key
+    WITH replication = {'class':'SimpleStrategy', 'replication_factor' : 3};
+    """
+    session.execute(create_key_space)
     create_table = """
     CREATE TABLE IF NOT EXISTS store_key.vectores (
         partition_id UUID PRIMARY KEY,
@@ -79,6 +70,23 @@ def initialize_database_session():
         vector BLOB  -- Store the embeddings (vector representation of the document)
     );
     """
+    create_session_table = """
+
+    CREATE TABLE IF NOT EXISTS store_key.session_table (
+        session_id UUID PRIMARY KEY,
+        
+    );
+    """
+    session.execute(create_session_table)
+    session_response_table = """
+    CREATE TABLE IF NOT EXISTS store_key.response_session (
+        partition_id UUID PRIMARY KEY,
+        session_id UUID,
+        table_response_id UUID,
+    );
+    """
+    session.execute(session_response_table)
+    
     response_table = """
     CREATE TABLE IF NOT EXISTS store_key.response_table (
         partition_id UUID PRIMARY KEY,
@@ -92,7 +100,7 @@ def initialize_database_session():
     session.execute(create_table)
     session.execute(response_table)
     return session
-session = initialize_database_session()
+#session = initialize_database_session()
 def retrieve_column_descriptions(session):
     query_schema ="""
     SELECT * FROM system_schema.columns 
@@ -143,11 +151,17 @@ def create_retriever_from_documents(session, docs):
         if doc is not None:
             chunks = text_splitter.split_documents(doc)
             documents.extend(chunks)  
+    bm25_retriever=BM25Retriever.from_documents(documents)
+    bm25_retriever.k =  2  # Retrieve top 2 results
+
     keyspace = "store_key"
     cassandra_vecstore :Cassandra = Cassandra(embedding=hf, session=session, keyspace=keyspace, table_name="vectores_new")
-    cassandra_vecstore.add_documents(documents)
+    #cassandra_vecstore.add_documents(documents)
     retrieval = cassandra_vecstore.as_retriever(search_type="similarity", search_kwargs={'k': 10})
-    return retrieval
+    ensemble_retriever = EnsembleRetriever(retrievers=[bm25_retriever, retrieval],
+                                       weights=[0.4, 0.6])
+
+    return ensemble_retriever
 def get_last_responses(session):
     query = "SELECT * FROM store_key.response_table LIMIT 10"
     rows = session.execute(query)
@@ -155,7 +169,7 @@ def get_last_responses(session):
     for row in rows:
         text+=f"Question: {row.question}\nAnswer: {row.answer}\nTimestamp: {row.timestamp}\nEvaluation: {row.evaluation}\n\n"
     return text
-def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5:3b", base_url="http://localhost:11434"):
+def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5:0.5b", base_url="http://localhost:11434"):
     """
     Build a Question-Answering process using a multi-agent system.
     
@@ -193,12 +207,10 @@ def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5
         ]
     )
 
-    # Create a history-aware retriever for fetching relevant context
     history_aware_retriever = create_history_aware_retriever(
         llm, retrieval, contextualize_q_prompt
     )
 
-    # Define the multi-agent system for answering the question
     qa_system_prompt = (
         "You are part of a multi-agent system designed to answer questions. 🤖\n"
         "Each agent will contribute to answering the question based on specific parts of the context: \n"
@@ -218,15 +230,13 @@ def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5
         [
             ("system", qa_system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("system", "Context: {context}"),  # Ensure proper context is passed
+            ("system", "Context: {context}"),  
             ("human", "{input}"),
         ]
     )
 
-    # Create the document chain for answering the question based on the context
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-    # Create the RAG (Retrieval-Augmented Generation) chain
     rag_chain = create_retrieval_chain(
         history_aware_retriever, question_answer_chain
     )
@@ -307,23 +317,23 @@ def execute_question_answering(model_name, initialize_database_session, load_pdf
         print("Raw output:", cleaned_steps)
 
 #execute_question_answering(model_name, initialize_database_session, load_pdf_documents, create_retriever_from_documents, build_q_a_process, question)
-def fetch_relevant_documents_from_cassandra():
+def fetch_relevant_documents_from_cassandra(question):
     template = """
-I am an AI assistant specialized in providing clear, precise, and useful answers. 
-Your role is to decide which tables from the Cassandra database schema should be used based on the question provided.
-Instructions:
-- Review the provided schema
-- List only relevant table names
-- Separate multiple tables with commas
-- Do not include explanations
-- Do not provide additional information
-- Do not use indice
-response format: give the table names separated by commas
-Schema: 
-{schema}
-Question: 
-{question}
-Response:
+    I am an AI assistant specialized in providing clear, precise, and useful answers. 
+    Your role is to decide which tables from the Cassandra database schema should be used based on the question provided.
+    Instructions:
+    - Review the provided schema
+    - List only relevant table names
+    - Separate multiple tables with commas
+    - Do not include explanations
+    - Do not provide additional information
+    - Do not use indice
+    response format: give the table names separated by commas
+    Schema: 
+    {schema}
+    Question: 
+    {question}
+    Response:
 """
     QA_CHAIN_PROMPT = PromptTemplate(
         template=template,
@@ -336,24 +346,11 @@ Response:
         callbacks=None, 
         verbose=True
     )
-#session=initialize_database_session()
 
-    session = Cluster(["0.0.0.0"],port=9042).connect( )
-
-    if session is None:
-        session=initialize_database_session()
-#session.execute("TRUNCATE store_key.response_table")
-    schema = session.execute("SELECT table_name FROM system_schema.tables WHERE keyspace_name='store_key';")
-    schema_str = ""
-    for i,row in enumerate(schema):
-        if i==0:
-            schema_str+=f"description table: table for storing all responses and questions    table_name: {row.table_name}\n"
-        else:
-            schema_str+=f"description table: table for all documents that guide users through the marketplace, table_name: {row.table_name}\n"
-   
-    question = "Comment puis-je valider ou refuser une offre dans l'interface contenant les détails de l'offre tels que la Désignation, la Date de création, la Date de début d'offre, la Date de fin d'offre, la Promotion et la Quantité d'offre ?"
-    response_expected = """Pour valider l'offre, il suffit de cliquer sur le bouton d'action Valider.
-Pour refuser l'offre, il suffit de cliquer sur le bouton d'action Refus."""
+    
+    schema = retrieve_column_descriptions(session)
+    schema_str = "\n".join([f"Table: {table}\n{desc}" for table, desc in schema.items()])
+    
     tabels_nedeed = llm_chain.run(schema=schema_str, question=question).split(",")
     documents=[]
     CASSANDRA_KEYSPACE = "store_key"
@@ -364,171 +361,12 @@ Pour refuser l'offre, il suffit de cliquer sur le bouton d'action Refus."""
         table=table_name,
         session=session,
         keyspace=CASSANDRA_KEYSPACE,
-    )
+        )
         docs=loader.load()
         if table_name=="response_table":
             for doc in docs:
                 if doc is not None:
                     doc.metadata['source'] = f'cassandra:{CASSANDRA_KEYSPACE}.{table_name}'
         documents.extend(docs)
-    return session,llm,question,response_expected,documents
-    # Connect to Cassandra
-    session = Cluster(["localhost"],port=9042).connect( )
-    import cassio
-    cassio.init(session=session, keyspace="store_key")
-
-    # Create tables
-    create_table = """
-        CREATE TABLE IF NOT EXISTS store_key.vectores (
-            partition_id UUID PRIMARY KEY,
-            document_text TEXT,  -- Text extracted from the PDF
-            document_content BLOB,  -- PDF content stored as binary data
-            vector BLOB  -- Store the embeddings (vector representation of the document)
-        );
-        """
-    response_table = """
-        CREATE TABLE IF NOT EXISTS store_key.response_table (
-            partition_id UUID PRIMARY KEY,
-            question TEXT,  
-            answer TEXT,
-            timestamp TIMESTAMP,
-            evaluation BOOLEAN
-            
-        );
-        """
-
-    # Test question and expected response
-    question = "Comment puis-je valider ou refuser une offre dans l'interface contenant les détails de l'offre tels que la Désignation, la Date de création, la Date de début d'offre, la Date de fin d'offre, la Promotion et la Quantité d'offre ?"
-    response_expected = """Pour valider l'offre, il suffit de cliquer sur le bouton d'action Valider.
-    Pour refuser l'offre, il suffit de cliquer sur le bouton d'action Refus."""
-
-    # Initialize LLM model   
-    llm=Ollama(model="qwen2.5:3b", base_url="http://localhost:11434")
-        
-    # Execute table creation
-    session.execute(create_table)
-    session.execute(response_table)
-
-    # Load and process documents
-    docs= load_pdf_documents()
-    Retrieval= create_retriever_from_documents(session, docs)
-    retrieved_docs= Retrieval.get_relevant_documents(question)
-
-    # Setup document prompt template
-    document_prompt = PromptTemplate(
-            template="Context:\ncontent:{page_content}\nsource:{source}",  
-            input_variables=["page_content", "source"]  
-        )
-
-    # Format context with proper spacing
-    context = "\n\n".join([document_prompt.format(page_content=" ".join(doc.page_content.split()), source=doc.metadata.get('source', 'N/A')) for doc in retrieved_docs])
-
-    # Define main prompt template
-    template = """
-    Tu es un assistant IA intégré à un système multi-agent collaboratif, conçu pour fournir des réponses claires, précises et utiles. Chaque agent joue un rôle spécifique et coopère pour offrir la meilleure assistance possible. Respecte strictement les consignes suivantes :
-        🔹 📜 Principes fondamentaux :
-            - Ne t'appuie que sur les informations du contexte ci-dessous pour répondre.
-            - Si une information est absente, indique-le explicitement avec "Je ne sais pas." et propose une solution pour l'obtenir.
-            - Travaille en synergie avec les autres agents en te concentrant sur ta spécialisation et en complétant leurs contributions.
-            - Fournis des réponses courtes et impactantes (maximum trois phrases), sans sacrifier la clarté ni la pertinence.
-            - Si un outil ou une plateforme est mentionné(e), explique son objectif et son utilisation de manière simple et pratique.
-            - Ne fais aucune supposition : toute réponse doit être directement appuyée par le contexte fourni.
-            - Si pertinent, ajoute une recommandation actionnable pour aider l'utilisateur à mieux comprendre ou agir efficacement.
-        🔹 🤖 Rôles des agents spécialisés :
-            - 🧠 Agent_Analyse : Décompose la question et identifie les informations essentielles du contexte.
-            - 📊 Agent_Expertise : Fournit une interprétation experte des données disponibles.
-            - ✅ Agent_Validation : Vérifie la précision, la clarté et la pertinence de la réponse finale.
-            - 🔍 Agent_Recherche : Explore le contexte pour repérer des informations cachées ou indirectement liées.
-            - 🎯 Agent_Optimisation : Reformule la réponse pour la rendre plus concise, fluide et impactante.
-            - 📌 Agent_Contextuel : Assure que la réponse respecte bien les contraintes spécifiques du contexte.
-            - 💡 Agent_Recommandation : Ajoute des conseils ou des suggestions pratiques pour aider l'utilisateur à agir efficacement.
-            - 🛠 Agent_Technique : Si la question concerne un outil, une plateforme ou une technologie, explique son fonctionnement de manière détaillée et pratique.
-            - 📖 Agent_Pédagogique : Simplifie les concepts complexes et les explique de manière accessible.
-        📂 Contexte :
-        {context}
-        ❓ Question :
-        {question}
-        📝 Réponse (collaborative) :
-    """
-
-    # Setup QA chain prompt
-    QA_CHAIN_PROMPT = PromptTemplate(
-            template=template,
-            input_variables=[ "context","question"]
-        )
-
-    # Create LLM chain
-    llm_chain = LLMChain(
-            llm=llm, 
-            prompt=QA_CHAIN_PROMPT, 
-            callbacks=None, 
-            verbose=True
-        )
-
-    # Get response
-    response=llm_chain.run(context=context,question=question)
-
-    # Text similarity comparison functions
-    WORD = re.compile(r"\w+")
-
-    def text_to_vector(text):
-        words = WORD.findall(text)
-        return Counter(words)
-
-    def get_cosine(vec1, vec2):
-        intersection = set(vec1.keys()) & set(vec2.keys())
-        numerator = sum([vec1[x] * vec2[x] for x in intersection])
-        sum1 = sum([vec1[x] ** 2 for x in vec1.keys()])
-        sum2 = sum([vec2[x] ** 2 for x in vec2.keys()])
-        denominator = math.sqrt(sum1) * math.sqrt(sum2)
-        if not denominator:
-            return 0.0
-        else:
-            return float(numerator) / denominator
-
-    # Calculate similarity score
-    response_expected_vector = text_to_vector(response_expected)
-    response_vector = text_to_vector(response)
-    cosine = get_cosine(response_expected_vector, response_vector)
-
-    # Print results
-    print("******************************************response******************************************")
-    print(response)
-    print("******************************************response_expected******************************************")
-    print(response_expected)
-    print("******************************************cosine******************************************")
-    print(cosine)
-    print("******************************************//////******************************************")
-
-#session.execute("TRUNCATE store_key.vectores")
-#docs=load_pdf_documents()
-#retr= create_retriever_from_documents(session, docs)
-#loader = CassandraLoader(
-#    table="vectores",
-#    session=session,
-#    keyspace=CASSANDRA_KEYSPACE,
-#)
-#docs = loader.load()
-#print(docs)
-
-
-
-
-#from langchain.chains import ConversationalRetrievalChain
-#from langchain.prompts.prompt import PromptTemplate
-
-# Template setup
-#template = """
-#You are HR assistant to select best candidates based on the resume based on the user input. It is important to return resume ID when you find the promising resume. Start with AAAAAAAAAAAAA
-#Here is context including list of resume information: {context}
-#user input: {question} 
-#AI Assistant: start with AAAAAAAAAAAAA
-#[/INST]"""
-#PROMPT = PromptTemplate(input_variables=["question", "context"], template=template)
-
-# Chain initialization
-#conversation_chain = ConversationalRetrievalChain.from_llm(
-    #llm=llm,
-    #retriever=db.as_retriever(search_kwargs={'k': 4}),
-    #condense_question_prompt = PROMPT,
-#)
+    return documents
+   
