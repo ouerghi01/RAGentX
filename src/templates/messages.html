@@ -1,6 +1,6 @@
 <div id="messages">
   <!-- User Message -->
-  <div class="message user" style="float: right;">
+  <div class="message user">
     <input type="hidden" id="partition_id" name="partition_id" value="{{ partition_id }}">
     
     <div class="message-icon">
@@ -12,36 +12,27 @@
   </div>
 
   <!-- AI Message -->
-  <div class="message ai" style="position: relative; top: 25px; border-color: bisque; display: flex; align-items: flex-start; gap: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 8px; max-width: 600px;">
-    <div class="message-icon" style="flex-shrink: 0;">
-      <svg style="border-radius: 5px;" xmlns="http://www.w3.org/2000/svg"  background-color: rgb(109, 95, 160); x="0px" y="0px" width="45" height="45" viewBox="0 0 50 50">
-        <path d="M45.403,25.562c-0.506-1.89-1.518-3.553-2.906-4.862c1.134-2.665,0.963-5.724-0.487-8.237c-1.391-2.408-3.636-4.131-6.322-4.851c-1.891-0.506-3.839-0.462-5.669,0.088C28.276,5.382,25.562,4,22.647,4c-4.906,0-9.021,3.416-10.116,7.991c-0.01,0.001-0.019-0.003-0.029-0.002c-2.902,0.36-5.404,2.019-6.865,4.549c-1.391,2.408-1.76,5.214-1.04,7.9c0.507,1.891,1.519,3.556,2.909,4.865c-1.134,2.666-0.97,5.714,0.484,8.234c1.391,2.408,3.636,4.131,6.322,4.851c0.896,0.24,1.807,0.359,2.711,0.359c1.003,0,1.995-0.161,2.957-0.45C21.722,44.619,24.425,46,27.353,46c4.911,0,9.028-3.422,10.12-8.003c2.88-0.35,5.431-2.006,6.891-4.535C45.754,31.054,46.123,28.248,45.403,25.562z"></path>
-      </svg>
+  <div class="message ai">
+    <div class="message-icon">
+      <img src="/static/bot.png" alt="bot" class="bot-icon">
     </div>
-    <div class="message-content" style="flex: 1;">
-      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #333;" id="answer">
-        {{ answer }}
-      </p>
+    <div class="message-content">
+      <p id="answer">{{ answer }}</p>
     </div>
   </div>
   
-  
   <!-- Evaluation Form -->
-  <div>
+  <div class="evaluation-form">
     <form hx-get="/evaluate_response/" hx-trigger="submit">
-      <select id="evaluation" class="form-control" name="evaluation">
-        <option value="True" {% if evaluation == "True" %}selected{% endif %}>yes</option>
-        <option value="False" {% if evaluation == "False" %}selected{% endif %}>no</option>
-      </select>
       <label for="evaluation">Was the response helpful?</label>
+      <select id="evaluation" class="form-control" name="evaluation">
+        <option value="True" {% if evaluation == "True" %}selected{% endif %}>Yes</option>
+        <option value="False" {% if evaluation == "False" %}selected{% endif %}>No</option>
+      </select>
       <input type="hidden" name="partition_id" value="{{ partition_id }}">
-
-      <button type="submit">Submit</button>
+      <button type="submit" class="submit-button">Submit</button>
     </form>
   </div>
 
-  <div>
-
-    {{ timestamp }}
-  </div>
+  <div class="timestamp">{{ timestamp }}</div>
 </div>
