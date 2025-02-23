@@ -1,5 +1,10 @@
 from langchain_community.document_loaders import CassandraLoader
 from fastapi.concurrency import run_in_threadpool
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import FlashrankRerank
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
 from typing import Annotated
 from dotenv import load_dotenv
 import os 
@@ -23,6 +28,7 @@ from langchain.chains import LLMChain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain_experimental.text_splitter import SemanticChunker
 from services.cassandra_service import CassandraInterface
+from flashrank import Ranker 
 class AgentInterface:
     def __init__(self,role):
         self.role=role
@@ -33,6 +39,9 @@ class AgentInterface:
         self.MODEL_NAME_EMBEDDING=os.getenv("MODEL_NAME_EMBEDDING")
         self.MODEL_KWARGS_EMBEDDING={"device": "cpu"}
         self.ENCODE_KWARGS={"normalize_embeddings": True}
+        cranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2")
+        compressor = FlashrankRerank(model="ms-marco-MiniLM-L-12-v2", top_n=3)
+
         
         self.CassandraInterface=CassandraInterface()
         self.hf_embedding = HuggingFaceEmbeddings(
@@ -43,7 +52,7 @@ class AgentInterface:
         self.semantic_chunker = SemanticChunker (
         self.hf_embedding, 
         )
-        self.documents=self.load_pdf_documents(False)
+        self.documents=self.load_pdf_documents(True)
         self.CassandraInterface.clear_tables()
         self.bm25_retriever=BM25Retriever.from_documents(self.documents)
         self.bm25_retriever.k=2 # Retrieve top 2 results
@@ -52,9 +61,28 @@ class AgentInterface:
         self.retrieval = self.cassandra_vecstore.as_retriever(search_type="similarity", search_kwargs={'k': 10})
         self.ensemble_retriever = EnsembleRetriever(retrievers=[self.bm25_retriever, self.retrieval],
                                         weights=[0.4, 0.6])
+        self.compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=self.ensemble_retriever
+        )
 
-        self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA)
+        self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
         self.retrieval_chain=self.build_retrieval_chain()
+    # Pre-retrieval Query Rewriting Function
+    def query_rewriting(self, query: str) -> str:
+        query_rewrite_prompt = f"""
+        You are a helpful assistant that takes a user's query and
+        turns it into a short  paragraph so that it can
+        be used in a semantic similarity search on a vector database
+        to return the most similar chunks of content based on the
+        rewritten query. Please make no comments, just return the
+        rewritten query.
+        
+        query: {query}
+
+        ai: """
+        retrieval_query = self.llm.invoke(query_rewrite_prompt)
+        return retrieval_query
     def build_retrieval_chain(self):
         contextualize_q_system_prompt = (
         "Given a chat history and the latest user question, "
@@ -76,7 +104,7 @@ class AgentInterface:
             ]
         )
         history_aware_retriever = create_history_aware_retriever(
-        self.llm, self.ensemble_retriever, contextualize_q_prompt
+        self.llm, self.compression_retriever, contextualize_q_prompt
         )
         qa_system_prompt = (
         f"You are part of a multi-agent system designed to answer questions. Your role is: {self.role} 🤖\n"
@@ -97,6 +125,7 @@ class AgentInterface:
             [
                 ("system", qa_system_prompt),
                 MessagesPlaceholder(variable_name="chat_history"),
+
                 ("system", "Context: {context}"),  
                 ("human", "{input}"),
             ]
@@ -111,7 +140,7 @@ class AgentInterface:
         return rag_chain
     def load_pdf_documents(self,bool=True):
         documents = []
-        if bool==False:
+        if bool==True:
             self.UPLOAD_DIR.mkdir(exist_ok=True) 
             docs=[]
             dir_path = Path("/home/aziz/IA-DeepSeek-RAG-IMPL/src/uploads")
@@ -126,6 +155,11 @@ class AgentInterface:
                     chunks = self.semantic_chunker.split_documents(doc)
                     documents.extend(chunks)  
             
+        #self.load_documents_from_cassandra(documents)
+                
+        return documents
+
+    def load_documents_from_cassandra(self, documents):
         schemas = self.CassandraInterface.retrieve_column_descriptions()
             
         for table_name,desc in schemas.items():
@@ -140,15 +174,15 @@ class AgentInterface:
                         if doc is not None:
                             doc.metadata['source'] = f'Description:{desc}.{table_name}'
             documents.extend(docs)
-                
-        return documents
     def answer_question(self,question:str,request,session_id):
         exist_answer=self.CassandraInterface.find_same_reponse(question)
         if exist_answer is not None:
             return{"request": request, "answer": exist_answer.answer, "question": question,"partition_id":exist_answer.partition_id,"timestamp":exist_answer.timestamp,"evaluation":True}
         else:
+            query_rewritten = self.query_rewriting(question)
+            question_enhanced= question + " " + query_rewritten
             chat_history = self.CassandraInterface.get_chat_history(session_id)
-            final_answer= self.retrieval_chain.invoke({"input": question, "chat_history": chat_history})
+            final_answer= self.retrieval_chain.invoke({"input": question_enhanced, "chat_history": chat_history})
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
             return {"request": request, "answer": final_answer["answer"], "question": question,"evaluation":True}
 

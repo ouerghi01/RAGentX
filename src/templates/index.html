@@ -32,14 +32,22 @@
       </form>
     </footer>
     <script >
+      answer = document.getElementById('answer');
+      
       document.getElementById('input').addEventListener('input', function() {
         const button = document.querySelector('button');
         button.disabled = !this.value;
+      });
+      answer.addEventListener('change', function() {
+        alert('changed');
       });
 
 
     </script>
   </div>
 </body>
+
+
+
 </html>
 

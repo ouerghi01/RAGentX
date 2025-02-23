@@ -5,8 +5,9 @@ from fastapi import FastAPI,Request,File,Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
-import threading
+
 class FastApp :
     def __init__(self):
         self.app=FastAPI()
@@ -39,6 +40,7 @@ class FastApp :
         self.templates = Jinja2Templates(directory="templates")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")
     def send_message(self,request:Request,question:str=Form(...)):
+        
         json_data= self.agent.answer_question(question,request,self.session_id)
         return self.templates.TemplateResponse(
         "messages.html",json_data
@@ -58,3 +60,4 @@ if __name__ == "__main__":
      app.run()
 # https://github.com/bhattbhavesh91/pdf-qa-astradb-langchain/blob/main/requirements.txt
 # https://github.com/michelderu/chat-with-your-data-in-cassandra/blob/main/docker-compose.yml
+#https://medium.com/@o39joey/advanced-rag-with-python-langchain-8c3528ed9ff5

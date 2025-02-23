@@ -157,6 +157,11 @@ body {
   .evaluation-form {
     margin-top: 20px;
   }
+  .evaluation-form form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
   
   label {
     display: block;
@@ -174,6 +179,7 @@ body {
   
   .submit-button {
     padding: 10px 15px;
+    width: 50px;
     background-color: #007bff; /* Blue button */
     color: #fff;
     border: none;
