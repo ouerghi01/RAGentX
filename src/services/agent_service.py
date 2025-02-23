@@ -14,6 +14,7 @@ from langchain.chains import (
     create_history_aware_retriever,
     create_retrieval_chain,
 )
+from langchain.chains import RetrievalQA
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 load_dotenv()  # take environment variables from .env.
@@ -33,16 +34,13 @@ class AgentInterface:
     def __init__(self,role):
         self.role=role
         self.UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR"))  
-         
         self.MODEL_NAME_llm=os.getenv("MODEL_NAME")
         self.BASE_URL_OLLAMA=os.getenv("OLLAMA_BASE_URL")
         self.MODEL_NAME_EMBEDDING=os.getenv("MODEL_NAME_EMBEDDING")
         self.MODEL_KWARGS_EMBEDDING={"device": "cpu"}
         self.ENCODE_KWARGS={"normalize_embeddings": True}
-        cranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2")
+        Ranker(model_name="ms-marco-MiniLM-L-12-v2")
         compressor = FlashrankRerank(model="ms-marco-MiniLM-L-12-v2", top_n=3)
-
-        
         self.CassandraInterface=CassandraInterface()
         self.hf_embedding = HuggingFaceEmbeddings(
         model_name=self.MODEL_NAME_EMBEDDING,  
@@ -67,10 +65,10 @@ class AgentInterface:
         )
 
         self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
-        self.retrieval_chain=self.build_retrieval_chain()
+        self.retrieval_chain=self.build_q_a_process()
     # Pre-retrieval Query Rewriting Function
     def query_rewriting(self, query: str) -> str:
-        query_rewrite_prompt = f"""
+        query_rewrite_prompt = """
         You are a helpful assistant that takes a user's query and
         turns it into a short  paragraph so that it can
         be used in a semantic similarity search on a vector database
@@ -81,9 +79,68 @@ class AgentInterface:
         query: {query}
 
         ai: """
-        retrieval_query = self.llm.invoke(query_rewrite_prompt)
+        QA_CHAIN_PROMPT = PromptTemplate(template=query_rewrite_prompt, input_variables=["query"])
+        llm_chain = LLMChain(
+            llm=self.llm, 
+            prompt=QA_CHAIN_PROMPT, 
+            callbacks=None, 
+            verbose=True
+        )
+        retrieval_query = llm_chain.invoke({"query": query})
         return retrieval_query
-    def build_retrieval_chain(self):
+    def build_q_a_process(self):
+
+    
+   
+        prompt = """
+    🔹 **Agent IA - Réponses Basées sur la Documentation** 🔹  
+    Je suis un agent intelligent conçu pour répondre aux questions en m’appuyant exclusivement sur les informations contenues dans la documentation fournie. Mon objectif est de fournir des réponses précises, claires et concises, tout en respectant les limites du contexte disponible.  
+
+    📌 **Directives pour formuler les réponses :**  
+    1. **Utilisation stricte du contexte** : Je dois répondre uniquement en me basant sur les informations du contexte fourni.  
+    2. **Gestion des inconnues** : Si la réponse n’est pas présente dans la documentation, je dois répondre : *"Je ne sais pas."*  
+    3. **Clarté et concision** : Les réponses doivent être courtes (maximum trois phrases), sans ajouter d’informations non mentionnées dans le contexte.  
+    4. **Explication des fonctionnalités** : Si le contexte mentionne un outil, une fonctionnalité ou un concept spécifique, je dois expliquer son utilisation et son objectif.  
+    5. **Aucune supposition** : Je ne dois jamais inventer ou extrapoler des informations non fournies.  
+    6. **Recommandation pertinente** : Si possible, je peux donner une suggestion utile basée sur le contexte.  
+
+    📖 **Contexte** :  
+    {context}  
+
+    ❓ **Question** :  
+    {question}  
+
+    ✍️ **Réponse** :
+
+        """
+
+        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["context", "question"])
+
+        llm_chain = LLMChain(
+            llm=self.llm, 
+            prompt=QA_CHAIN_PROMPT, 
+            callbacks=None, 
+            verbose=True
+        )
+
+        document_prompt = PromptTemplate(
+            template="Context:\ncontent:{page_content}\nsource:{source}",  
+            input_variables=["page_content", "source"]  
+        )
+        
+        combine_documents_chain = StuffDocumentsChain(
+            llm_chain=llm_chain,  
+            document_variable_name="context",
+            callbacks=None,
+            document_prompt=document_prompt  
+        )
+        qa = RetrievalQA(
+            combine_documents_chain=combine_documents_chain,  
+            retriever=self.compression_retriever,
+            verbose=True
+        )
+        return qa
+    def build_retrieval_chain_history(self):
         contextualize_q_system_prompt = (
         "Given a chat history and the latest user question, "
         "which may reference context in the chat history, "
@@ -179,10 +236,9 @@ class AgentInterface:
         if exist_answer is not None:
             return{"request": request, "answer": exist_answer.answer, "question": question,"partition_id":exist_answer.partition_id,"timestamp":exist_answer.timestamp,"evaluation":True}
         else:
-            query_rewritten = self.query_rewriting(question)
-            question_enhanced= question + " " + query_rewritten
-            chat_history = self.CassandraInterface.get_chat_history(session_id)
-            final_answer= self.retrieval_chain.invoke({"input": question_enhanced, "chat_history": chat_history})
+            question_enhanced= question 
+            #chat_history = self.CassandraInterface.get_chat_history(session_id)
+            final_answer= self.retrieval_chain.run(question_enhanced)
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
-            return {"request": request, "answer": final_answer["answer"], "question": question,"evaluation":True}
+            return {"request": request, "answer": final_answer, "question": question,"evaluation":True}
 

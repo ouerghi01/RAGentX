@@ -5,7 +5,6 @@
     
     <div class="message-icon">
       <img src="/static/icons8-user.svg" alt="bot" class="bot-icon">
-
     </div>
     <div class="message-content">
       <p>{{ question }}</p>
@@ -17,11 +16,12 @@
     <div class="message-icon">
       <img src="/static/bot.png" alt="bot" class="bot-icon">
     </div>
-    <div class="message-content">
-      <p id="answer">{{ answer }}</p>
+    <div class="message-content" style="display: flex;">
+      <p id="answer" class="ellipsis">{{ answer }}</p>
+      <button id="toggleButton" onclick="toggleText()"></button>  
     </div>
   </div>
-  
+
   <!-- Evaluation Form -->
   <div class="evaluation-form">
     <form hx-get="/evaluate_response/" hx-trigger="submit">
@@ -37,3 +37,44 @@
 
   <div class="timestamp">{{ timestamp }}</div>
 </div>
+
+<style>
+  .ellipsis {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      width: 300px; /* Adjust width */
+  }
+  #toggleButton {
+      background-color: transparent;
+      border: none;
+      color: blue;
+      text-decoration: antiquewhite;
+      cursor: pointer;
+  }
+
+  .expanded {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+  }
+</style>
+
+<script>
+  function toggleText() {
+      let answer = document.getElementById("answer");
+      let button = document.getElementById("toggleButton");
+
+      if (answer.classList.contains("ellipsis")) {
+          answer.classList.remove("ellipsis");
+          answer.classList.add("expanded");
+          button.textContent = "Show Less";
+      } else {
+          answer.classList.remove("expanded");
+          answer.classList.add("ellipsis");
+          button.textContent = "Show More";
+      }
+  }
+</script>
+

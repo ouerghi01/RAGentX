@@ -114,7 +114,7 @@ class CassandraInterface:
         now=datetime.now()
         self.session.execute(
         f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
-        (partition_id,question, final_answer["answer"],now)
+        (partition_id,question, final_answer,now)
         )
         query_session_response_related=f"""INSERT INTO {self.KEYSPACE}.response_session (session_id,partition_id) VALUES (%s,%s)"""
         self.session.execute(query_session_response_related,(session_id,partition_id))
