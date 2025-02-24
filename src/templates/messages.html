@@ -22,18 +22,7 @@
     </div>
   </div>
 
-  <!-- Evaluation Form -->
-  <div class="evaluation-form">
-    <form hx-get="/evaluate_response/" hx-trigger="submit">
-      <label for="evaluation">Was the response helpful?</label>
-      <select id="evaluation" class="form-control" name="evaluation">
-        <option value="True" {% if evaluation == "True" %}selected{% endif %}>Yes</option>
-        <option value="False" {% if evaluation == "False" %}selected{% endif %}>No</option>
-      </select>
-      <input type="hidden" name="partition_id" value="{{ partition_id }}">
-      <button type="submit" class="submit-button">Submit</button>
-    </form>
-  </div>
+  
 
   <div class="timestamp">{{ timestamp }}</div>
 </div>

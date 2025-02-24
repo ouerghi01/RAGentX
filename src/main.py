@@ -28,11 +28,8 @@ class FastApp :
         self.app.add_event_handler("startup", self.startup_event)
         self.app.add_event_handler("shutdown", self.shutdown_event)
         self.app.add_api_route("/", self.main_page)
-        self.app.add_api_route("/evaluate_response/", self.evaluate_response, methods=["POST"])
         self.app.add_api_route("/send_message/", self.send_message, methods=["POST"])
-    def evaluate_response(self,request: Request, partition_id: str, evaluation: bool):
-        self.agent.CassandraInterface.evaluate_reponse(partition_id,evaluation)
-   
+    
     def startup_event(self):
         print("Starting App")
         self.agent=AgentInterface("assistant")
