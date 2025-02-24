@@ -138,15 +138,15 @@ def create_retriever_from_documents(session, docs):
     text_splitter = SemanticChunker (
     hf 
     )
-    documents = []
-    for doc in docs:
-        if doc is not None:
-            chunks = text_splitter.split_documents(doc)
-            documents.extend(chunks)  
+    documents = docs
+    
     keyspace = "store_key"
     cassandra_vecstore :Cassandra = Cassandra(embedding=hf, session=session, keyspace=keyspace, table_name="vectores_new")
     cassandra_vecstore.add_documents(documents)
-    retrieval = cassandra_vecstore.as_retriever(search_type="similarity", search_kwargs={'k': 10})
+    retrieval = cassandra_vecstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={'k': 5, 'fetch_k': 50}
+    )
     return retrieval
 def get_last_responses(session):
     query = "SELECT * FROM store_key.response_table LIMIT 10"
@@ -210,7 +210,7 @@ def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5
         "After gathering individual contributions, a final agent will combine and deliver a concise response in no more than three sentences. 📝\n"
         "At the end, provide a brief summary emphasizing the key factors that most affect the total loan cost. "
         "If an agent cannot provide an answer, it should respond with 'I don't know.' ❌"
-            "Keep the explanation clear, avoiding unnecessary complexity while maintaining accuracy."
+        "Keep the explanation clear, avoiding unnecessary complexity while maintaining accuracy."
     )
 
     # Define the Q&A prompt template
@@ -218,7 +218,7 @@ def build_q_a_process(retrieval, model_name="deepseek-r1:7b", llm_model="qwen2.5
         [
             ("system", qa_system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("system", "Context: {context}"),  # Ensure proper context is passed
+            ("system", "Context: {context}"), 
             ("human", "{input}"),
         ]
     )
