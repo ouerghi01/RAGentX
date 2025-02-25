@@ -9,6 +9,10 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
+<<<<<<< HEAD
+=======
+from typing import Annotated
+>>>>>>> 920b59ce2e8fef0c8c0a4cd9b6029e60bcfc2f7c
 from dotenv import load_dotenv
 import os 
 from pathlib import Path
@@ -35,6 +39,7 @@ from services.cassandra_service import CassandraInterface
 from flashrank import Ranker 
 class AgentInterface:
     def __init__(self,role):
+        
         self.role=role
         self.UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR"))  
         self.MODEL_NAME_llm=os.getenv("MODEL_NAME")
@@ -66,6 +71,10 @@ class AgentInterface:
         base_compressor=compressor,
         base_retriever=self.ensemble_retriever
         )
+<<<<<<< HEAD
+=======
+        #https://aistudio.google.com/app/u/2/apikey
+>>>>>>> 920b59ce2e8fef0c8c0a4cd9b6029e60bcfc2f7c
         self.llm_gemniu = ChatGoogleGenerativeAI(
             model="gemini-1.5-pro",
             google_api_key=os.getenv("LANGSMITH_API_KEY"),
@@ -77,21 +86,27 @@ class AgentInterface:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             },
         )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 920b59ce2e8fef0c8c0a4cd9b6029e60bcfc2f7c
         self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
         self.retrieval_chain=self.build_q_a_process()
     # Pre-retrieval Query Rewriting Function
-    def query_rewriting(self, query: str) -> str:
+    def answer_rewriting(self,context, query: str) -> str:
         query_rewrite_prompt = """
-        You are a helpful assistant that takes a user's query and
-        turns it into a short  paragraph so that it can
-        be used in a semantic similarity search on a vector database
-        to return the most similar chunks of content based on the
-        rewritten query. Please make no comments, just return the
-        rewritten query.
-        
-        query: {query}
+            You are a helpful assistant that takes a user's question and 
+            provided context to generate a clear and direct answer. 
+            Please provide a concise response based on the context without adding any extra comments.
+            provide a short and clear answer based on the context provided.
 
-        ai: """
+            Context: {context}
+
+            Question: {query}
+
+            Answer:
+        """
+
         QA_CHAIN_PROMPT = PromptTemplate(template=query_rewrite_prompt, input_variables=["query"])
         llm_chain = LLMChain(
             llm=self.llm, 
@@ -99,8 +114,8 @@ class AgentInterface:
             callbacks=None, 
             verbose=True
         )
-        retrieval_query = llm_chain.invoke({"query": query})
-        return retrieval_query
+        retrieval_query = llm_chain.invoke({"query": query, "context": context})
+        return retrieval_query['text']
     def build_q_a_process(self):
 
     
@@ -128,6 +143,7 @@ class AgentInterface:
 
         QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["context", "question"])
 
+<<<<<<< HEAD
         try:
             try:
                 llm_chain = LLMChain(
@@ -148,6 +164,10 @@ class AgentInterface:
             print(e)
             llm_chain = LLMChain(
             llm=self.llm, 
+=======
+        llm_chain = LLMChain(
+            llm=self.llm_gemniu, 
+>>>>>>> 920b59ce2e8fef0c8c0a4cd9b6029e60bcfc2f7c
             prompt=QA_CHAIN_PROMPT, 
             callbacks=None, 
             verbose=True
@@ -246,7 +266,7 @@ class AgentInterface:
         #self.load_documents_from_cassandra(documents)
                 
         return documents
-
+    
     def load_documents_from_cassandra(self, documents):
         schemas = self.CassandraInterface.retrieve_column_descriptions()
             
@@ -270,6 +290,7 @@ class AgentInterface:
             question_enhanced= question 
             #chat_history = self.CassandraInterface.get_chat_history(session_id)
             final_answer= self.retrieval_chain.run(question_enhanced)
+            final_answer= self.answer_rewriting(final_answer,question)
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
             return {"request": request, "answer": final_answer, "question": question,"evaluation":True}
 

@@ -38,6 +38,8 @@ class FastApp :
         # Call the Cassandra interface method
         self.agent.CassandraInterface.evaluate_reponse(partition_id, evaluation_bool)
 
+        self.app.add_api_route("/send_message/", self.send_message, methods=["POST"])
+    
     def startup_event(self):
         print("Starting App")
         self.agent=AgentInterface("assistant")
