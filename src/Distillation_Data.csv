@@ -1,0 +1,751 @@
+question,response
+What is the purpose of clicking on the 'Ajouter Finition' button?,To fill in the characteristics of Finition
+What types of information can be filled in when clicking on 'Ajouter Finition'?,"Caractéristiques, Motorisation, Transmission et Dimension, Performance et Consommation, Equipements"
+What is the first category of information that can be filled in when clicking on 'Ajouter Finition'?,Caractéristiques
+Is there a separate section for motorization-related information?,"Yes, it's called Motorisation"
+What is the last category of information that can be filled in when clicking on 'Ajouter Finition'?,Equipements
+What happens to the finishings after they are added to the list?,They will be treated in backoffice
+Who can consult the list of finishings added by concessionnaires?,The administrator
+What information does the list of finishings provide?,"La marque, Le modèle, L'état de la finition"
+What is the state of a finishing when it's added to the list?,En attente de validation
+Where are finishings treated after they're added to the list?,Backoffice
+What is the purpose of the checkbox 'Approuver'?,The purpose of the checkbox 'Approuver' is to approve the finishing.
+What needs to be done after approving the finishing?,"After approving the finishing, one needs to click on Enregistrer (Save) and a pop-up will appear to confirm the successful addition of the finishing."
+What is required to validate the finishing?,"To validate the finishing, the concessionnaire must check the 'Approuver' box."
+How does one approve a finishing?,One can approve a finishing by checking the 'Approuver' checkbox and then clicking on Enregistrer (Save).
+What happens when the concessionnaire clicks on 'Enregistrer' after approving the finishing?,A pop-up will appear to confirm the successful addition of the finishing with a message confirming the action.
+What is the current state of the finishing process in the concession space?,Validée
+Can a concessionaire add finishes by lot?,Yes
+What type of file should a concessionaire prepare to add finishes by lot?,Excel
+What information should be included in the Excel file for adding finishes by lot?,A list of finishes with all their characteristics
+How can a concessionaire upload the Excel file to add finishes by lot?,By clicking on the 'Add Finish by Lot' button and downloading the file
+What information is listed about the cars in stock?,"La désignation, Le couleur, La quantité totale, La quantité restante, Date de stock, Prix unitaire, and Le nombre de demandes en cours"
+What options does a concessionnaire have when managing the stock?,"Changer la quantité restante de stock, Modifier le prix de stock, Supprimer le stock"
+What is included in the designation of each car?,Not specified
+Can a concessionnaire change the quantity remaining of a car in stock?,Yes
+Can a concessionnaire modify the price of a car in stock?,Yes
+What information must a concessionnaire provide when adding a vehicle to the stock?,"The marque, modèle, finition, couleur, and quantité"
+What is the purpose of clicking on 'Ajouter Stock'?,To add the stock that will be treated in backoffice
+What details can be specified when adding a vehicle to the stock?,"La marque, Le modèle, La finition, Le couleur, La quantité, and Description du stock"
+How many items are added to the list of stocks after validation?,1
+What happens to the added stock after validation?,It will be treated in backoffice
+What information is required to add an offer?,"The concessionnaire must specify stock, marque, modèle, finition, date of beginning promotion, date of end promotion, montant de promotion, and quantity."
+What are the details that need to be specified when adding an offer?,"Le stock, la marque, le modèle, la finition, date de début de promotion, date de fin de promotion, montant de promotion, and quantité."
+What happens after clicking the 'Valider' button?,The offer is added to the list of offers that will be treated in backoffice.
+What is packed free when adding an offer?,Pack gratuit
+How many details are required for adding an offer?,9
+What can a concessionnaire do in the Gestion de contenu section?,"Add or modify brands, models and blogs"
+What can be found in the Gestion de contenu section?,"A list of brands, models and Blogs"
+What actions can be performed on marks in the Gestion des marques section?,Modify or add a new mark
+How can a concessionnaire modify a brand in the Gestion des marques section?,By choosing the brand and downloading the logo
+What is required to add a new mark in the Gestion des marques section?,"The mark, description and logo"
+What can you do by clicking on Gestion des modèles?,Modify the model and add a new model
+How can you modify the model?,By choosing the brand and uploading images and videos
+What options do you have for adding a new model?,"You can add a new model by specifying the brand, model, description, and image"
+Is it possible to upload images when modifying a model?,"Yes, you can upload images"
+Can you upload videos when modifying a model?,"Yes, you can upload videos"
+What is the primary function of clicking on 'Gestion modèles'?,To add blogs
+What information can a concessionnaire specify when adding blogs?,"The title, paragraphs, and images (vitrine and intérieure)"
+How many steps are involved in adding blogs?,3
+What type of information can a concessionnaire add for the images?,Vitrine and intérieure
+What is the purpose of specifying paragraphs when adding blogs?,To provide text content for the blog
+What will happen to content added by a concessionnaire?,It will be treated in back office and then made public once validated.
+When will concessionnaire-added content become publicly available?,After being validated
+Where will concessionnaire-added content be processed?,In the back office
+What happens to concessionnaire-added content before it becomes public?,It is validated first
+Will all concessionnaire-added content become publicly available?,"Yes, once validated"
+What is the company name?,BRI-Technology
+Where is the BRI-Technology located?,"05 Golden Tower Bloc B,Centre Urbain Nord,1082,Tunis,Tunisie"
+What is the contact phone number of BRI-Technology?,98 665 245
+How to get in touch with BRI-Technology?,e-mail: mohamedali.kachouri@bri-technology.com
+Who owns the copyright of this guide?,BRI-Technology
+What is the content about?,A website guide
+What is the purpose of the StickyMenu?,To contain other stores that exist
+Where can users find information on car news?,In the SectionActualités/BLOG
+How to verify the uniqueness of an email address?,Through Vérification l’unicité d’email
+What is the purpose of the PopUpComparateur?,To compare products
+What is the purpose of the 'PageProfil' page?,To display user profile information
+Where can users find their financial information?,On the 'PageMesfinancement' page
+How do users simulate a vehicle purchase?,Through the 'PopUpsimulateur' and 'Pagesimulateur' pages
+What is the purpose of the 'EspaceBackOfficepourleschargésdelabanque' page?,For bank representatives to access back office features
+Where can users upload a gallery?,On the 'UploadGalerie' page
+What can you consult in the store?,"Véhicules, financements, partenaires"
+How do you validate partners?,En attention de validation et ValidationPartenaires
+What is validated for franchises and marques?,Validation franchises et Validation marques
+What kind of content can be published?,Contenu publié
+What are some modules mentioned in the guide?,"Module Marketing: Gestion de contenu, Blog, Financement et FAQ"
+What is the first section of the guide?,Guide d'Utilisation
+What topic does the 'C.ClientMarket' section cover?,Véhicule
+How many entries are there in the 'd.GestionDesComptes' and 'GestionDeGroupes' sections?,140
+What is the topic of the section with the number 141?,"GestiondesUtilisateursBO, GestionDeGroupes, or GestionUtilisateurs"
+What is the topic of the section with the number 142?,ConsulterUtilisateurs and Reporting
+Can a user access the internal space without logging in?,"Yes, the user can access the internal space through their account or without connecting."
+What is displayed when an unlogged-in user accesses the internal space?,The page Home is displayed.
+How can a user sign up on the internal space?,"A user can sign up as a client final or send a request to become a department, concessionnaire, or announceur."
+What features are available on the internal space's different pages?,"The user can consult the shop, filter and search for offers, access the simulator and add cars to the comparator."
+How can a user access the Page Home?,A user can click on the logo that appears at the top of the page or the 'Home' section in the horizontal menu bar.
+What are the three main categories in the menu?,"Simulateur, Financement, and Comparateur"
+What is the name of the vertical scrolling menu?,Sticky Menu
+How many rubriques are in the sticky menu?,3
+What is the filter for,metaux clients to find quickly the product that suits them
+How does the filter work?,by selecting 7
+What is the name of the guide?,Guide d'Utilisation
+What type of product is being presented in the guide?,Véhicule (vehicle)
+What details can be found under each vehicle listing?,"Marque (brand), Modèle (model) and Budget mensuel"
+What is the purpose of the 'bouton Affichertouslesrésultats' button?,To show all results
+What page are users directed to for more information about a vehicle that matches their filter criteria?,Page ‘neuf’ (new page)
+What is the purpose of this guide?,It's a usage guide
+What type of vehicles are listed in the new cars section?,New cars
+Is the banner static?,Yes
+How many new cars are listed horizontally?,Four
+What is added recently in the new cars section?,Cars
+What is the purpose of the 'Afficher plus' button?,To view more details about vehicles or a page with filtered popular cars
+What does the Bannière Populaire allow you to do?,"To set products, promotions, and new releases in advance"
+What is composed of the Bannière Populaire?,A block image and a zone text
+What can you find in the 'Toutes les marques' section?,"A horizontal list of logos for available brands in the Marketplace, with a 'Afficher plus' button to show all brands"
+What happens when you hover your mouse over a brand logo?,The color of the logo changes
+What is the purpose of the Actualités/BLOG section?,"The section contains the latest blogs with a brief description and an image, allowing users to read more by clicking on the 'Lire la suite' button or view all blogs by clicking on the 'Afficher plus' button."
+What can you do when clicking on the 'Lire la suite' button?,You can consult the blog in its entirety.
+How can you access all blogs?,By clicking on the 'Afficher plus' button.
+What is the purpose of the FAQ section?,The section contains a list of frequently asked questions.
+How do you access the answers to FAQs?,By clicking on the 'flèche' button.
+What is the purpose of the Section Statique in the Guide d'Utilisation store?,"It contains information on Services, Livraison, and Moyen de paiements."
+What can be found in the Section Statique?,"Services, Livraison, and Moyen de paiements"
+How can someone subscribe to the newsletter?,Through the section 'Inscrivez-vous pour recevoir des offres' by adding an email address and clicking on the button to complete the inscription.
+What is the name of the section that allows for newsletter subscription?,'Inscrivez-vous pour recevoir des offres'
+What is the purpose of the Bannière NewsLetter?,To permit the inscription to the newsletter
+What is the purpose of the 'Réseaux sociaux' widget?,Permet diriger les utilisateurs vers la page officielle du marketplace sur les réseaux sociaux.
+What is the 'NewsLetter' widget used for?,Unknown (no information provided)
+What is the purpose of the 'véhicule' block?,Unknown (no information provided)
+Is there a store guide available?,"Yes, there is a guide called 'Guide d'Utilisation'"
+What does the 'Widget « NewsLetter »' do?,Unknown (no information provided)
+What are the main sections of the guide?,"Menu, Contact, Help&Support, and Moyensdepaiements"
+What is the purpose of sending a demande de partenariat,To have it treated by an administrator in Back Office
+How many characters must the libellé concessionnaire field contain?,At least 3 characters
+What is the format for the matricule fiscal field?,7 numbers and a letter
+What is required in the email field,A specific character '@'
+What is the format of an email address required for a responsible?,"comporter le caractère spécifique ""@"""
+How many characters should a mobile phone number of a responsible contain?,8 chiffres
+What happens when the user clicks the 'Enregistrer' button?,l’envoie de sa demande qui sera traitée en back office par un administrateur
+What will be sent to the address entered by the user once their request is validated?,un mail sera envoyé à l'adresse saisie par l’utilisateur contenant les informations de connexion
+How can someone become an announcer according to the guide?,17
+What happens when you click on the car body to filter?,The color becomes green
+What is the result of filtering by clicking on the car body?,The color becomes green
+Is there a specific action that triggers a change in color when viewing a vehicle?,"Yes, clicking on the car body does so"
+What is the new color of the filtered result?,Green
+Can you filter vehicles based on their car body type?,Yes
+What is the purpose of the 'partager' button?,to share
+What does the 'simulation' button redirect to?,the page simulator
+What is the function of the 'commander' button?,to command/commission
+What is displayed in the banner?,voitures similaires (similar cars)
+What is being referred to with the text '**Bannière voiture similaires : Box voitures'?,a car similar box
+Where can you access the PopUp Comparateur?,From the page home
+What is the name of the feature being discussed?,PopUp Comparateur
+What type of content is this guide about?,Store vehicle information
+What is the main topic of the store guide?,Vehicle related
+Where do you find the PopUp Comparateur in the guide?,Since number 23
+What can you find in the PopUp Comparateur?,"A bouton ajouter une voiture, a bouton voir la comparaison, and a bouton tout supprimer"
+How do you access the page 'Comparateur'?,"Through the menu en haut de chaque page, the PopUp Comparateur, or StickyMenu"
+What information can be added to compare a vehicle?,"Marque, modèle, and version"
+What is the function of the bouton ajouter une voiture?,To redirect the internaute to the formulaire 'Choisir une voiture à comparer'
+What happens when you click on the bouton tout supprimer?,The voitures ajoutées are suppressed
+How many selection buttons are there?,Two
+What is specified for the number of years?,Number of years
+What information can be found under 'Détails'?,"Marque, version, loyer, prix comptant, apport propre minimum exigé, apport propre, type de carrosserie"
+What is included in the motorisation section?,"Énergie, boite vitesse, puissance fiscale, nombre de cylindres"
+What characteristics can be found under 'Caractéristiques'?,"Disponibilité, garantie, nombre de places, nombre de portes, ABS"
+What is the specific character required for an email address?,@
+How many characters should a mobile number consist of?,8
+What type of characters are allowed in the password field?,"At least one digit and one letter, or just digits/letters"
+How many incorrect attempts at the password can be made before the connection button locks?,5
+What happens if you forget your password after connecting to the system for the first time?,The system will redirect you to the page for changing the password for security purposes
+What happens when you click the 'inscription' button?,A popup appears that allows you to write a code which will be sent by SMS or email
+How can you send the code after clicking the 'inscription' button?,By SMS or email
+What is the purpose of writing the code in the popup,To be sent by SMS or email
+Is there a specific method for sending the code after clicking the 'inscription' button?,"Yes, you can send it by SMS or email"
+What is displayed when you click the 'inscription' button?,A popup
+How can I create a new account?,Il y a aussi autre méthode d’inscription à travers un compte Facebook en cliquant sur “Inscription avec Facebook” ou à travers un compte Google en cliquant sur “Inscription avec Google”.
+What happens if my email is already used by another user?,"Pour créer un nouveau compte que ce soit client ou partenaire il faut que l’email doit être unique, sinon le système va refuser la création du compte tant qu’il existe un autre utilisateur qui utilise le même e-mail et un message d’erreur sera affiché."
+How long is an account active before being automatically disconnected?,"Tant que l’utilisateur est inactif plus que 10 minutes, le compte est déconnecté automatiquement."
+How can I change my password?,"Pour changer le mot de passe il suffit d’accéder à votre espace et choisir dans le menu “Changer mot de passe” puis un formulaire sera affiché qui contient trois champs à remplir: Mot de passe actuel, Nouveau mot de passe (le mot de passe doit comporter au moins 8 caractères et contenir des majuscules et des caractères spéciaux sinon le système verra refuser le changement et affichera un message)."
+How do I confirm my new password?,Confirmer le nouveau mot de passe.
+What is the purpose of the provided interface?,The purpose of this interface is to contain various forms for users
+What types of information can be inputted in the forms?,"The forms include fields for name, first name, telephone number, email address, subject, and message"
+Is there a submit button available in the interface?,"Yes, there is a 'Envoyer' (Send) button available"
+What additional content is present on this interface?,The interface also contains information about the presented brand and logos
+What type of page is described in the provided text?,The page being described is a 'Page contact concessionnaire' (Contact Page for Dealership)
+What is the address field for in the guide?,For storing vehicle information
+How can you access the blog?,By clicking on 'Actualités' or by viewing the list of blogs in the section 'Actualités / Blog'
+What does the 'afficher plus' button do?,It redirects the user to a page containing all actualities and blogs
+What information does each blog typically consist of?,"An image, title, description, and date of publication"
+How many pages are in total?,35
+What feature allows users to choose a vehicle to simulate?,"Permet aux utilisateurs de choisir une voiture à simuler, en sélectionnant : Marque, Modèle, Version, Bouton simuler"
+What options are available for users to select when choosing a vehicle to simulate?,"Marque, Modèle, Version"
+What is the result of clicking the 'Simuler' button?,Le clic sur le bouton simuler redirige l’internaute vers la page simulateur
+What is the purpose of the 'PopUp simulateur'?,"Permet aux utilisateurs de choisir une voiture à simuler, en sélectionnant : Marque, Modèle, Version, Bouton simuler"
+Is there a specific page associated with the simulation process?,Oui (Page simulateur)
+What is the purpose of the 'Bouton de sélection'?,To consult a simulation of the selected vehicle
+"What type of user can select from ('Particulier', 'Professionnel', or 'Entreprise')?",The internaut (internet user)
+What is the purpose of the 'Apport propre' field?,To specify the personal contribution
+What is the purpose of the 'La prime d’assurance vie dépend de l’âge' field?,To input the age for life insurance premium calculation
+What type of vehicle usage can be simulated?,Private or utility (with Zitouna Takaful)
+What are the main sections to consider when using the guide?,"Dont apport, Durée, Loyer (prix par mois), Coût totale de financement, Dont frais de dossier, Prime d’assurance"
+What happens when you click on the 'Suivant' button?,"If you are connected, it redirects the client to the next page; otherwise, it asks the user to log in"
+How do I access the Simulator?,You can access the Simulator by clicking on 'Simulateur' from the horizontal menu above each page
+What information is required for the vehicle simulation?,"Marque, modèle, version, article"
+How do I fill in the remaining fields when using the Simulator?,The system will fill them in automatically
+What happens when the user clicks the 'acheter' button?,The user must connect to continue the purchase procedure.
+What is the purpose of the 'Financer' button?,To access the simulator directly and have the car details filled in automatically.
+What happens when the user clicks the 'annuler' button?,The simulator is reset to its initial state.
+How does the premium insurance impact the buyer's loan?,It has no impact on the buyer's loan.
+What determines the apport propre percentage in the Mourabaha Particulier process?,"The apport propre is calculated based on the power of the vehicle, with different percentages applying to vehicles with 4CV, between 5CV-8CV, and above 9CV."
+What is the formula for calculating the MontantFinancement?,PrixAcquisition(PA)-ApportPropre(Auto-financement)
+How is MargeGlobale calculated?,"MargedeProfitAnnualisé(MPA) selon Produit, Durée d'assurance et Durée de remboursement par an"
+What is the formula for calculating PrixdeVente?,(MontantFinancement(MtFin)x(1+MargeGlobale(MG)en%)+Apport Propres)
+How is Mensualité calculated?,(PrixdeVente(PV)-Apport Propres)/(Durée de Financement(DF)x12 mois)
+What is the minimum Apport Propre required?,30% du prix de la voiture
+What type of insurance is considered in the simulator?,Tout risque
+How does the prime d'assurance impact the loyer and type of assurance?,The prime d'assurance has an impact on the loyer and the type of assurance is uniquely Tout risque.
+What formula calculates BaseLocativeenHT,"(MontantduBienouService)/1,19)-ApportPropre/1,19"
+How does the simulator calculate Marge Globale (MG) and PrixdeVente (PV),"Marge Globale (MG) = Marge de Profit Annualisé (MPA ‘Pro’) selon Produit et Durée de Remboursement x Durée de Remboursement (DR) par an, Prix de Vente (PV) = BaseLocativeenHT x (1+MargeGlobale(MG) en %)+Apport Propres/1er Loyer."
+How is Loyermensuel (Lm) calculated in the simulator,(Prix de Vente (PV) - Apport Propres) / (Durée de Financement(DF)x12 mois)
+What type of insurance is applicable in this case?,Tout risque
+How is the prime d'assurance calculated and what impact does it have on the loyer?,"The prime d'assurance has an impact on the loyer, and it's calculated uniquely as Tout risque."
+What is the formula for calculating Base Locative en HT?,((Montant du Bien ou Service) / 1.19) - Apport Propre / 1.19
+How is Marge Globale (MG) calculated?,Margede Profit Annualisé (MPA 'Entreprise) selon Produit
+What is the formula for calculating Loyer Mensuel à afficher?,L4 + L5 (Loyer Mensuel (Lm) en HT + Primetakaful)
+What types of usage options are available for clients?,Private or utilitarian
+How does the insurance tariff depend on variables?,"Type of usage, type of assurance, puissance fiscale and type franchise"
+What is the range of puissance fiscale options available?,4CV to 15CV ET+
+What are the possible types of franchise options?,"0%, 2% or 4%"
+What factors influence the insurance tariff?,"Type of usage, type of assurance and puissance fiscale"
+What is the age range for which the client's profile can be accessed by the user?,The age range is from 18 to 69.
+Is it possible to modify the birthdate of a client with an existing profile?,"Yes, the birthdate can be modified directly."
+What are the conditions for launching a request?,The eligibility depends on the age of the client (from 18 to 69).
+What is the maximum duration of payment for clients aged 63-69?,The maximum duration is calculated using the following formula: Age of the client + chosen repayment period <= 70.
+"For a simulator assurance, what is the duration range for clients aged 66 and older?",Clients aged 66 have the right to choose a repayment duration between 1 and 4 years.
+What are the main sections of the Guide d'Utilisation?,"The main sections include 'Vehicule', 'Mes documents', and more"
+Is there a section for electronic appliances in the guide?,"Yes, there is a section called 'Electroménager'"
+Can you schedule appointments with the Guide d'Utilisation?,"No, there is no such option"
+How do you log out of the guide?,You can 'Déconnexion'
+Who should you contact for assistance with the guide?,You can 'Contacter un chargé'
+What is the purpose of the 'Simulateur' feature?,to simulate navigation in a simulated space
+How can you access your previous simulations?,through the 'Mes dernièressimulations' section
+What does the 'Etat d'avancement devos financements' feature display?,the status of each store's financing advancement
+How can you view your upcoming appointments?,through the 'Mes rendez-vous' section
+What happens when a client receives a notification?,they are redirected to the page corresponding to the notification
+What is required to update personal information?,Click on 'Mon profil'
+Where can you find the profile page?,Véhicule
+What is the purpose of the profile page?,Pour permettre à jour les informations personnelles
+What is displayed on the 'Véhicule' page?,Profile page
+What number appears on the page?,52
+What is the purpose of the 'Changer mot de passe' feature?,permet d'écrire le mot de passe actuel ou nouveau
+How many characters are allowed in a new password,chiffres et au moins une lettre minuscule ou majuscule
+What is the purpose of the 'Enregistrer les changements' button?,un popUp de confirmation s'affiche
+What is required to add a financing request,se connecter avec un compte client
+What step must be completed for the first-time financement request,l'étape relation Client
+What are the options for vehicle identification?,"Matricule fiscal, CIN, Registre de commerce, Identifiant Unique, and Identifiant client"
+What should the client do if they cannot choose a type of identification?,The client should follow the subsequent steps
+How can the client finance their vehicle,By choosing la voiture after the offers and clicking on 'Financer'
+Where can the client access their financing options,In the Véhicule: Mes financement section
+How can the client request a financing option,By clicking on the 'Demande de financement' button
+What information does a client need to fill out for a vehicle guide?,"Marque, Modèle, and Version"
+What is the first piece of information a client needs to provide for their vehicle guide?,Marque
+How many fields does a client need to complete for a vehicle guide?,"Three (Marque, Modèle, and Version)"
+What is the name of the document being referred to in this guide?,Véhicule
+What type of document is this guide for?,Vehicle
+What is the purpose of this guide?,store véhicule
+Is this a user manual for vehicles?,oui
+What type of content is described in the guide?,store véhicule
+Is this document related to vehicle storage?,yes
+What does the guide provide information about?,vehicle store
+What is required to be done after clicking the confirm button?,One must choose the number of the account
+What is the expected action after clicking the confirm button?,Choosing the number of the account
+What is the specific task to be performed after confirmation?,Selecting the account number
+How does one proceed after confirming?,By choosing the account number (58)
+What action follows clicking the confirm button and selecting the account number?,Choosing the account number (58)
+What is required to download?,all requested documents
+Why is downloading necessary?,because it's necessary to download all the documents demanded
+What should you do first?,you should download all the documents demanded
+What type of content is being referred to?,vehicle-related content
+What is the purpose of downloading?,it's necessary to download all the documents
+What happens when you click the 'j'en profite' option?,A pop-up confirmation of demand addition is displayed
+Where are demands taken in this system?,Demands are taken in BackOffice
+What is the purpose of the 'j'en profite' option?,The 'j'en profite' option triggers a demand addition
+Is there any visual confirmation after adding a demand?,"Yes, a pop-up deconfirmation of demand addition is displayed"
+What is the purpose of the pop-up deconfirmation?,The pop-up deconfirmation confirms the addition of demands in BackOffice
+What is the purpose of this guide?,This guide appears to be a usage guide for some kind of vehicle
+Is there a way to track the status of requests?,"Yes, according to the content, you can consult the advancement of your demands"
+What is the reference number mentioned in the guide?,The reference number mentioned is '61'
+What type of information does this guide provide?,This guide provides guidance on how to use a vehicle
+Can you check the status of your requests in this guide?,"Yes, you can consult the advancement of your demands according to the guide"
+What do you need to access your financing requests and their status?,"You need to access your profile, then click on 'Follow my requests'"
+What information can you find in the 'Suivre mes demandes' interface?,"Each request contains the following informations: reference, offer, color, date of request, and status"
+What is one of the options available in the 'Suivre mes demandes' interface?,One option is to click on 'Follow my requests'
+What can you find out about each financing request?,"You can find the reference, offer, color, date of request, and status"
+Where do you go to access your financing requests and their status?,You go to your profile
+What is the first step to add a product to the cart?,Clicking on the icon of the cart in the product box
+How do you initiate adding a product to the cart?,By clicking on the icon of the cart
+What action do you take to put an item in the shopping cart?,Clicking on the icon of the cart
+Where is the location of the button to add a product to the cart?,In the product box
+How many steps are involved in adding a product to the cart?,One
+What can you do when clicking 'visualiser le panier',You can visualize the cart
+What happens when you click on 'confirmer',The process of adding a financing request begins
+What is being stored in this guide?,A vehicle
+What is the title of the guide?,Guide d'Utilisation
+Is there a specific type of vehicle being stored?,No (no further information provided)
+What is the number at the end of the guide title?,65
+What kind of content is this guide for?,User utilization
+What is the purpose of the provided guide?,It is a usage guide
+What type of content is being described?,A vehicle guide
+Is there any specific information about the guide?,"No, it only provides the title 'store' and '66'"
+Is the guide related to a physical store?,"Yes, according to the title 'store'"
+What is the significance of the number '66' in this context?,"It is unclear, but it may be a reference or code"
+How can a client access their uploaded documents?,By accessing their profile and clicking on 'Mes documents'
+What information is contained in the 'Mes documents' interface?,"The reference, offer, color, demand date, state, and action of each document"
+How do you upload missing justificatifs?,By clicking on the document and uploading the files manually
+What can be seen in the 'Mes documents' interface besides the information about each document?,The uploaded files already
+Why is it necessary to access your profile before accessing your uploaded documents?,Because the client must have previously uploaded the justificatifs
+What is the purpose of this guide?,store véhicule
+What type of content is stored in this guide?,guide d'Utilisation
+What section does the number 69 refer to?,Pour le panier
+Is there any specific information about a vehicle stored in this guide?,store véhicule
+What is the first main topic discussed in this guide?,guide d'Utilisation
+What is the purpose of the 'Page mes demandes de financement'?,To visualize a request
+What is the value displayed on the 'store véhicule' page?,70
+What topic does the content relate to?,Vehicule
+Is there a guide provided for usage?,Yes
+What type of request can be visualized?,Financement
+What is this guide for?,Utilisation
+What is being stored in this guide?,Véhicule
+Who to contact for,Chargé
+What is this guide's purpose,Pour contacter un chargé
+What can you find on page 71 of this guide?,nothing (assuming it's just a number)
+"To add a meeting, what must the client do?",The client must access their profile and click on 'Ajouter RDV'
+What information is required in the form to add a meeting?,"Heure de rendez-vous, Référence demande, Gouvernorat, Agence de contact, Adresse agence de contact"
+How does one save a scheduled meeting?,By clicking on the 'Réserver maintenant' button
+What is the purpose of the interface when adding a meeting?,To contain a form to be filled out with the above-mentioned fields
+Where can one find the option to add a meeting?,On the 'Page mes RDV' page
+What is the purpose of this guide?,store
+What type of information does the guide contain?, véhicule
+Is the guide related to a vehicle?,yes
+What is the specific topic of the guide?,not specified
+Is this a user manual or instruction guide?,store
+What is required to follow appointments?,The client must access their private space and click on 'Suivre RDV'
+What can be found in the calendar interface?,A list of the client's appointments
+How many options are available for choosing a motif?,Four options
+What is the maximum character limit for writing a message?,250 characters
+What must the client do after writing a message?,Click on 'Envoyer' or 'Annuler'
+What is the purpose of the Stock section in the guide?,To manage stock
+What information can a concessionnaire see on the Tableau de Bord interface?,"The number of ongoing definitions, detailed statistics, and the number of unread notifications"
+What is the purpose of the Box Voiture feature?,To direct to the interface for adding stock
+Is there a section for Gestion de contenu in the guide?,Yes
+What does the Déconnexion option allow you to do?,Disconnect
+What is the first step to create a partner account?,"Lors de la création d'un compte partenaire, l'internaute passe par envoyer une demande de partenariat."
+What menu option should you access to start creating a partner account?,'Devenir Partenaire' dans le menu en haut
+What information is required in the partner account creation form?,"Des informations spécifiques, incluant le nom de la structure, l'adresse, le code postal, la ville, le site internet, les numéros de téléphones mobile et fixe, l'adresse email de contact, le numéro registre de commerce, le registre de commerce et une convention signée."
+What is the next step after validating a partner account request?,L'utilisateur reçoit un e-mail contenant le mot de passe de son compte pour pouvoir se connecter
+How does an internal user initially access their partner account?,"En appuyant sur le bouton 'Envoyer' l'internaute valide l'envoi de sa demande quiseraitée en back office, puis il reçoit un e-mail contenant le mot de passe de son compte pour pouvoir se connecter"
+What can a concessionnaire access through the Mon Profil interface?,"Descriptive information about their profile, as well as information related to the company and responsible individual"
+What type of information is available in the Descriptif de mon profil section?,Information about one's own profile
+What other types of information can be found through Mon Profil?,Information related to the company and responsible individual
+What is a concessionnaire able to consult in the Mon profil interface?,"Descriptif de mon profil, les informations relatives à la société, et les informations relatives au responsable"
+In what section can a concessionnaire find their profile description?,Mon Profil
+What are the allowed actions on the guide d'Utilisation store?,"Télécharger un nouvel objet de profil, Changer le mot de passe, Enregistrer les changements des autres champs du profil"
+Can a concessionnaire add franchises and users?,Yes
+What are the requirements for the franchise name on the guide d'Utilisation store?,"Alphabétique, minimum of 3 characters"
+How many characters does the fax number require on the guide d'Utilisation store?,8
+What is the format for the fiscal registration number on the guide d'Utilisation store?,7 chiffres + une lettre
+What is the minimum number of characters required for a responsible person's name?,3
+How many characters are required for a responsible person's first name?,at least 3
+What is the specific character required in an email address for a responsible person?,@
+How many digits does a mobile phone number of a responsible person require?,8
+Where are new franchises added?,backoffice
+What is the interface used to manage financing requests?,‘Mes financements'
+What can be specified in a search for financing requests?,"lamarque, lemodèle, le prix, la date de la demande, l'email et l'état pour filtrer la liste des demandes"
+What details are available for each financing request?,"La référence, la marque, le modèle, la définition, le client, l'état de la demande, la quantité, le montant de financement, Couleur et la date de la demande"
+What can a concessionnaire find in the list of financing requests?,Les détails relatifs à chaque demande
+What is the purpose of the ‘Mes financements’ interface?,Permettre aux partenaires de gérer les demandes venant des clients
+When does the action button appear?,The action button appears when the dossier is validated in Back Office
+What can a concessionnaire do after uploading the deed?,A concessionnaire can download the deed and change its price
+Who can upload the deed?,The concessionnaire can upload the deed
+What can be changed by a concessionnaire?,The concessionnaire can change the price of the deed
+What can a concessionnaire download?,A concessionnaire can download the deed
+What are the details listed in a dealership's guide to vehicle utilization?,"Lamarque, Lemodèle, Laversion, Leclient, L’étatdedevis, Lemontantdefinancement, Ladatededemande"
+What is the purpose of the 'Devis' section in the guide?,To list and upload precise invoices with detailed information on each
+Who can view the invoice after it has been uploaded?,The concessionnaire (dealership) allows authorized personnel to visualize the invoice
+What are some examples of details that may be included in an invoice?,"Lamarque, Lemodèle, Laversion, Leclient, L’étatdedevis, Lemontantdefinancement"
+How do dealerships typically handle requests for invoices?,By defining the invoicing process and providing a precise invoice upload date
+What is the purpose of filtering in the guide?,"To launch a specific search by specifying the date, email and state"
+What information can be found in the 'Gestion des finitions' section?,"Référence, Marque, Nom de définition, État and Cause de refus (en cas de refus)"
+What is shown on the technical definition file,The file can be visualized with a button for action of visualization
+What is the first step to launch a specific search?,"Launching a specific research by specifying the date, email and state"
+What is the 'Gestion des finitions' section about?,The section allows the concessionnaire to view the list of definitions added
+What is the purpose of filtering definitions in a vehicle guide?,Ilpeutaussifiltrerlalistedesfinitionsenprécisantlamarqueetlemodèle
+How can concessionnaires add definition characteristics,Encliquantsurlebouton«AjouterFinition»
+What kind of information is provided in the definition characteristics?,Caractéristiques
+What types of data are included in the motorization and transmission section?,Motorisation
+What additional details can be added to a vehicle definition?,"PerformanceetConsommation, Equipements"
+What is the topic of this content?,A guide to vehicle usage
+What is the page number or section relevant to this topic?,86
+Is the content related to a specific type of vehicle?,"No, it does not specify a particular type of vehicle."
+What is the primary purpose of the guide?,To provide information on how to use a vehicle
+Is there any specific instruction or guidance provided in this content?,"No, it appears to be an index or table of contents rather than providing instructions."
+What is the purpose of this guide?,It appears to be a usage guide for a vehicle.
+What is stored in the guide?,The guide stores information related to vehicles.
+Is there any specific topic mentioned in the guide?,"Yes, the guide is specifically about vehicle usage."
+What type of item is being described in the guide?,A vehicle is being discussed in the guide.
+Is there any numerical value mentioned in the guide?,"Yes, the number '87' is mentioned in the guide."
+What is the purpose of the 'MON RECAPITULATIF' button?,To present a summary of the added definition characteristics
+What are the required fields for adding a new definition?,All compulsory fields must be filled in
+What happens after clicking the 'Enregistrer' button?,A pop-up window is displayed to confirm the successful addition of the definition
+Is the added definition saved successfully?,"Yes, with a confirmation message 'Laversion a été ajoutée avec succès'"
+Where is the added definition processed?,In the back office
+What is the vehicle's brand?,Marque
+What is the vehicle model?,Modèle
+How many seats does the vehicle have?,Nombredeportes
+What type of energy does the vehicle's motorization use?,Energie
+What is the minimum coupling force of the vehicle?,CoupleMinimum
+What is the width of the vehicle?,Largeur
+What is the height of the vehicle?,Hauteur
+What is the volume of the trunk?,Volumedecoffre
+What is the top speed of the vehicle?,0 VitesseMaximale
+What is the consumption for mixed driving?,Consommationmixte
+What is the topic of this guide?,Vehicle
+What type of interior equipment does the vehicle have?,Sellerie
+Is there a adjustable steering wheel on the vehicle?,Yes
+What kind of rearview mirrors are available on the vehicle?,Rétroviseurs
+Does the vehicle have electric windows?,Yes
+What is allowed to be uploaded for vehicle definitions?,Images
+What formats are supported for uploaded images?,"png, jpg, jpeg"
+How many images can be uploaded at most?,80
+Who can upload images to vehicle definitions?,Concessionnaire (dealer)
+What step is required after selecting a definition?,Selecting the images
+What is the purpose of the 'Gestion de stock' feature?,Leconcessionnairetrouvelalistedesvoituresenstockenprécisant
+What information does the 'Gestion de stock' feature provide about each vehicle?,"La désignation, Lecouleur, Laquantité totale, Laquantité restante, Datedestock, Prixunitaire, Lenombrededemandesencours"
+What options does the concessionnaire have for managing stock?,"Changer la quantité restant du stock, Modifier le prix du stock, Supprimer le stock"
+What is the unit price of a vehicle in the 'Gestion de stock' feature?,Prixunitaire
+How many ongoing demands are there for a particular vehicle?,Lenombrededemandesencours
+What is the purpose of the 'Ajouter Stock' button?,To add a vehicle
+What information does the concessionaire need to specify when adding a vehicle?,"Lamarque, modèle, définition, couleur, quantité, and description du stock"
+Where is the added stock stored after validation?,In the list of stocks awaiting treatment in backoffice
+What action should be taken to add a vehicle,Clicking on the 'Ajouter Stock' button
+How many stock items are being tracked?,96
+What information is required to add an offer when clicking the 'Ajouter Offre' button?,"Lestock, Lamarque, Modèle, Finition, Datede début de promotion, Date fin de promotion, Montant de promotion, Quantité, Pack gratuit"
+What happens after clicking the 'Valider' button to add an offer?,The offer is added to the list of required offers and waits for treatment in backoffice
+How many numbers are listed in the guide?,1
+What is the number that is mentioned at the end of the guide?,97
+What is the purpose of adding an offer when clicking the 'Ajouter Offre' button?,"To specify Lestock, Lamarque, Modèle, Finition, Datede début de promotion, Date fin de promotion, Montant de promotion, Quantité, Pack gratuit"
+What can a concessionnaire add or modify in the Gestion de contenu?,"Les marques, les modèles et les blogs"
+"How can a concessionnaire view and manage the listed marks, models, and Blogs?",Il peut les visualiser et les supprimer avec les boutons d'action.
+What is Gestion de contenu,DanslarubriqueGestiondecontenu
+"In the Guide d'Utilisation, what can a concessionnaire view and manage?","Les marques, des modèles et des Blogs"
+What is stored in the Guide d'Utilisation,Véhicule
+What is the purpose of this guide?,store
+What type of contents are stored in the guide?,véhicule
+Is the guide related to a vehicle?,yes
+What is the purpose of Gestion des marques?,To manage vehicle brands
+What can you do with encliquantsurGestionmarque,"Modify or add a new brand, choosing the brand and downloading the logo"
+How do you modify a brand?,By choosing the brand and downloading its logo
+What is required to add a new brand,"The brand name, description, and logo"
+What is available with Ajouterunenouvellemarque button?,"Adding a new brand, specifying the brand, description, and logo"
+What can a concessionnaire do with the Gestion des modèles feature?,Modify models by choosing a marque and uploading images and videos
+How does one add a model to the system?,"By clicking the 'Ajouter modèle' button and providing details such as marque, model, description, and image"
+What information is required when adding a new model?,"Marque, model, description, and image"
+Can a concessionnaire upload images and videos with the Gestion des modèles feature?,Yes
+What is one of the key benefits of using the Gestion des modèles feature for concessionnaires?,The ability to modify models by choosing a marque and uploading images and videos
+What types of content can be added to a blog on the guide?,"The guide allows adding titles, paragraphs, and images"
+Can concessionnaire models be used with this guide?,"Yes, the guide permits adding concessionnaire models"
+What kind of images can be added to a blog on this guide?,Interior and vitrine images can be added
+Can specific details be added when creating a blog on this guide?,"Yes, the guide allows specifying details when adding blogs"
+What is being referred to as 'Gestion des blogs' in the guide?,It refers to managing or governing blogs
+What is the purpose of this guide?,This guide is for utilization
+What type of item does the guide refer to?,Véhicule
+Is there a specific topic covered in this guide?,"No, the topic is not specified"
+What is the page number or section title for this content?,103
+What type of document is this?,Guide
+What type of document is this?,A guide
+What does the guide relate to?,Véhicule (vehicle)
+Is there a specific page number mentioned in the guide?,104
+What is the main topic of the guide?,Utilisation (usage) of a vehicle
+Is this a user manual or instruction guide for a vehicle?,Yes
+What is the purpose of clicking the 'ModifierProfil' button?,To modify profile information
+What will be displayed after clicking the 'ModifierProfil' button?,An interface to allow modification of profile photos and other information
+How do you fill in the fields for modifying profile information?,By filling in the displayed fields
+What happens when you click the 'Modifier' button after filling in the fields?,A confirmation message is displayed saying that the user's profile has been modified successfully
+Is it possible to modify profile information through this process?,"Yes, with the help of the interface"
+How do I access the dashboard?,You can access the dashboard by clicking on the section 'Tableau de bord' in the menu at left and choosing 'Statistique Global' or 'Statistique Détailles'
+What kind of statistics are available for vehicle brands?,"The Marques section contains statistics such as Number of Vehicles per Brand, Number of Vehicles by Production State, Reclaimation per Motif (Demand for Information, Demand for Validation) and Contact/Stay Informed statistics"
+What kind of information can I find in the Demande section?,The Demande section contains statistics about Total Demand of the current year
+Where can I find financial data?,The Chiffre d'affaires section contains statistics about Total Financial Data for the current year
+What information is available in the DASHBOARD section?,"The DASHBOARD section displays the number of partners already registered, the number of partnership requests, the number of blogs and the number of messages received"
+What type of interface is displayed when you choose 'Statistique Détaillées'?,An interface with several sections
+What information does the DASHBOARD section contain?,"Information about market place such as number of partners, number of partnership requests, number of blogs and number of received messages"
+What statistics are contained in the 'Marques par partenaire' section?,"Number of vehicles per brand and per partner, Number of vehicles by production state per partner"
+What type of statistics are contained in the 'Réclamation' and 'Contactez-Nous / Restez Informés' sections?,Statistics about claims and contacts
+What information does the 'demande' section contain?,Total number of demands for the year
+What is the topic of the content?,A guide
+What type of content is it?,User manual
+What is being guided?,Vehicle
+Is the guide specific to a particular vehicle?,No indication either way
+What is the content's purpose?,To provide information and instructions
+What is the guide for?,Utilisation
+What type of item is described in the text?,Véhicule
+Is this a manual or instruction guide?,Store
+What is the number mentioned in the text?,112
+What type of content does the text describe?,Guide
+What information can the administrator consult through the action visualization button?,The details of a financing request
+What is contained in the Offre section?,"Information such as Reference, Concessionnaire, Marque, Modèle, Version, Couleur, Quantité, and Prix unitaire"
+What type of request can be viewed by the administrator?,Financing request
+How many pieces of information are listed for the Offre section?,"8 (Reference, Concessionnaire, Marque, Modèle, Version, Couleur, Quantité, and Prix unitaire)"
+What type of information is included in the Offre section?,Details about a vehicle
+What type of simulator is described in the guide?,It's not explicitly mentioned
+What financing option is solicited?,Financement sollicité
+What are the two types of insurance mentioned?,Assurance voiture et Assurance vie
+How can you consult partners?,By clicking on the 'Partenaires' section found in the menu à gauche
+What is needed to add a new partner?,A formulaire must be filled out
+What is the website address mentioned in the guide?,www.site.com
+What information can be found on the partner's interface?,"Adresse, Téléphone, Email de contact, Site"
+How many icons are present on the partner's interface?,Two icons: one for modifying or visualizing partner information and another for adding a user
+What is required to fill in the form on the add user interface?,"Nom, prénom, Email"
+What happens after clicking the 'Enregistrer' button on the confirmation message?,A confirmation message will be displayed
+What is the topic of the guide?,Store
+What type of object is being referred to?,Véhicule
+Is this a numerical value or a descriptive text?,Numerical value
+What is the number mentioned in the guide?,117
+What kind of entity is being referred to in the guide?,Vehicular
+What is the purpose of the 'Guide d'Utilisation store'?,"An interface containing a list of partnership requests detailing: Nom, Numéro registre de commerce, Date, Adresse, Site Internet, Etat"
+What information does the guide contain?,"Nom, Numéro registre de commerce, Date, Adresse, Site Internet, Etat"
+Is the 'Guide d'Utilisation store' awaiting validation?,En attente de validation
+What is one of the fields contained in the guide?,Nom
+What is the status of the 'Guide d'Utilisation store'?,En attente de validation
+What can an administrator do with the visualization button?,Consult information about partners and accept or refuse partnership requests
+How can an administrator filter a list of partners?,"By specifying date, state (refused or pending), or other criteria"
+What information is available for franchises in the validation interface?,"Name, registry number, date, address, website, and status"
+What kind of information can be found about marques in the validation interface?,"Logo, ID, brand name, validation status, and modification options"
+What actions can an administrator take regarding a marque?,"Modify, validate, or refuse it"
+What can an administrator do when clicking the modification button?,modify the description and logo of a marque
+What information is contained in the validation models interface?,"a list of added models by concessionnaires, specifying ID, marque, model label, and state of validation"
+What are the details listed for each modèle in the validation models interface?,"ID, marque, model label, and state of validation"
+What actions can an administrator take when modifying a modèle?,validation or modification
+What is stored in the Guide d'Utilisation store?,vehicle information
+What is the purpose of the interface?,To contain a list of available versions to validate or ignore
+What information does the table of versions contain?,"ID, Marque, Modèle, Version, Etat, and Action"
+What can be done with an ID in the interface?,Clicking on it displays an interface that contains a technical file to Approve or Refuse
+Is there a filter option available in the interface?,"Yes, it exists and allows filtering by marque, modèle, or état de version"
+What is the final step after validating or rejecting a version?,Clicking on the 'Enregistrer' button
+What is this guide for?,It is a usage guide
+What is mentioned in the title of the guide?,The guide's title mentions 'store' and 'véhicule'
+What is the main subject of the guide?,The main subject is a vehicle
+Is there any specific information about the vehicle provided in the guide?,"No, there is no specific information about the vehicle provided"
+What is the number mentioned in the guide?,The number '122' is mentioned
+What is the composition of an interface in the context of vehicle storage?,"A tableau containing information such as ID, Nom, Marque, Modèle, Couleur, Prix unitaires, Nouveau prix, Etat prix ,Etat, Partenaire, and Bouton visualiser"
+What is the purpose of the icon in the 'offre' column?,To validate a vehicle by clicking on it
+What happens when you click on the 'visualiser' button?,An interface is displayed with two buttons to either refuse or accept the vehicle
+What occurs if a vehicle's price has been modified?,A new interface is displayed with buttons for validation or refusal of the new price
+What filters are available for searching vehicles in the storage guide?,"Filters by marque, modèle, version, couleur, and prix"
+What is the purpose of the interface in a store guide?,The interface composes a table containing information about an offer
+What are the details included in the table on the interface?,"Désignation, Date de création, Datede début d’offre, Date fin d’offre, Promotion, Quantité offre et les boutons d’action"
+How do you validate an offer in the store guide?,By clicking on the 'Valid' button
+What happens when you refuse an offer in the store guide?,By clicking on the 'Refus' button
+What is the purpose of the 'Quantité offre' detail included in the table?,To indicate the quantity of the offer
+What is the topic of this document?,Guides d'utilisation
+What type of guide is described?,Store vehicle guide
+What is the purpose of the validation process?,Validation galerie
+What is the quantity mentioned in this document?,126
+What is being validated in the galerie?,Vehicle
+What type of information can be found in the 'Guide d'Utilisation store',Véhicule
+What sections does this guide contain,"Finitions, Stock, Offres, Partenaire, Franchise"
+How many details are available for a single finition,127
+What is the purpose of visualizing finition details,On peut visualiser les détails de cette finition
+What type of information can be found in this guide,Les historiques des Finitions
+What can be modified about a vehicle?,Les informations de la finition
+Is there a specific guide for using the system?,"Oui, il y a un Guide d'Utilisation"
+What is the purpose of the guide?,Pour utiliser le système
+Can you find information about vehicles in this guide?,"Non, mais on peut en trouver dans la section véhicule"
+What can be found under the vehicle section?,Les informations de la finition
+What is the purpose of this guide?,It appears to be a usage guide.
+What type of item is being described?,A vehicle
+What is the 'Stock' referred to in the guide?,Inventory or quantity available
+What kind of offer is being presented?,129
+What is the context for this information?,Usage instructions
+What is the purpose of the 'Gestion des produits' section?,To ensure the management of products
+How many sub-sections does the 'Gestion des produits' section have?,"Two, namely 'Gestion marques' and 'Gestion modèles'"
+What is required to add a new brand in the 'Gestion Marques' interface?,"Name of the brand, description, and logo download"
+What happens when you click on the 'Enregistrer' button after adding a brand?,The brand is registered
+What information can be found in the list of brands?,"Logo, ID, Marque, and Action (containing two icons for modification and deletion)"
+What is the first step to add a mark?,Il suffit de cliquer sur le bouton ajouter marque
+How do you add a model?,"Il suffit de sélectionner la marque et saisir le modèle, une description et télécharger l'image vitrine et l'image populaire (si cela est populaire) et 'Enregistrer' pour confirmer"
+What is the purpose of the Gestion Modèles interface?,C'est une interface qui affiche la liste des modèles et un bouton 'Ajouter Modèle'
+Can you undo adding a model?,"Oui, vous pouvez annuler en cliquant sur le bouton 'Annuler'"
+What is the last step to add a model?,'Enregistrer' pour confirmer
+What is being referred to in this text?,A guide
+What type of guide is it?,An utilisateur guide
+What is the subject of the guide?,Store véhicule information
+Is there a specific module mentioned?,"Yes, Marketing"
+What is the number associated with the marketing module?,133
+What is the topic of the guide?,utilisation
+What type of guide is it?,store
+What does the guide refer to?,véhicule
+Is there a specific number mentioned in the guide?,134
+What is the primary subject matter of the guide?,utilisation store véhicule
+What type of content is being discussed?,A guide
+What is the purpose of the 'Guide d'Utilisation' store?,To provide guidance for users
+What other category is mentioned alongside 'Gestion de contenu','Véhicule'
+What type of content is not specifically mentioned as being handled by the guide?,Financement
+What section is listed last in the guide?,FAQ
+What is the topic of the provided text?,A guide or manual
+What type of content is described in the menu?,Vehicular-related information
+How many comments are there in the content?,136
+What is the purpose of the MENU & Page section?,Navigation or switching between sections
+What type of menu is described as 'Menu Horizontal'?,A type of menu layout
+What is the main purpose of this interface?,It allows administrators to manage appointments
+What type of information can be filtered in the calendar view?,"Date, state, and location of appointments"
+How many time frames are available for viewing appointments?,"Five: day, week, workweek, month, agenda order"
+What additional information can be displayed about each appointment?,None mentioned in the provided content
+What is one of the main features of this interface besides calendar view?,Bannieres (banners)
+What is the title of the guide?,Guide d'Utilisation
+What is the topic covered by one section in the guide?,Véhicule
+Where can you access the 'Clients et prospects' section?,La section 'Clients et prospects' qui se trouve dans le menu à gauche
+What are the three subsections of the 'Clients et prospects' section?,"'Clients', ‘Prospects’ et ‘Gestion Des Comptes’"
+Is there a numerical value mentioned in the guide?,138
+What type of interface is provided for client management?,C'est une interface qui contient la liste des Comptes
+What information can be found in the list of accounts?,"Nom, Email, Téléphone, Type et Date d'inscription"
+Can client accounts be filtered by what criteria?,"filtrage par Email, date d’inscription, Particulier ou Entreprise"
+What options are available for account activation and deactivation?,Activer/Désactiver
+Can client accounts be locked or unlocked?,Verrouiller/Déverrouiller
+What is the purpose of the 'Guide d'Utilisation store' interface?,C'est une interface qui contient un formulaire qui permet d’ajouter un utilisateur.
+What information can be added when using the 'Guide d'Utilisation store' interface?,"Nom, Prénom, Email, Téléphone mobile, Adresse, Groupe, Gouvernorat, Agence"
+What is the purpose of the 'Consulter Utilisateurs' interface?,C’est une interface qui contient la liste des utilisateurs.
+What information can be filtered in the 'Consulter Utilisateurs' interface?,"Email, Groupe, Gouvernorat et agence"
+What action can be taken on an individual user's account through the 'Consulter Utilisateurs' interface?,"Visualiser ou modifier les informations de l’utilisateur, Reset Mot de passe, Activer/Désactiver"
+What is the guide for?,Utilisation
+What type of content is it about?,Véhicule
+What can an user do without logging in?,Access the Home page
+What is available on the Page Home?,"Consulting the boutique, filtering and searching offers, accessing the simulator, and adding cars to the comparator"
+How can an user access the Page Home?,By clicking on the logo at the top of the page or the 'Home' section in the horizontal menu bar
+What are the sections on the Page Home,Several sections that will be detailed in subsequent paragraphs
+What is available for users who want to become concessionnaires or advertisers?,Sending a partnership request
+What is the composition of the top menu?,"Logo Tunis store, Neuf, Simulateur, Comparateur, Actualités, Concessionnaires, Panier, Loupe de recherche, Bouton connexion, Traduction"
+How does the search function work?,The internet user can perform a search with at least three-letter keywords and will be redirected to the search results page.
+What are the categories in the sticky menu?,"Simulateur, Financement, Comparateur"
+Can you search for something on this website?,"Yes, an internet user can perform a search with at least three-letter keywords."
+What is the purpose of the sticky menu?,"The sticky menu contains three sections: Simulateur, Financement, and Comparateur."
+What is the purpose of the filtre?,to find rapidly the product that suits them
+Where will clients be redirected after applying a filter?,to the page ‘neuf’ with corresponding cars
+What does the main banner primarily display?,"products à la une, promotions and novelties"
+What are some elements of the main banner,bouton ‘shop now’’ and horizontal list
+What is the purpose of the main banner?,"to highlight products at the top, promotions and novelties"
+What is the purpose of the secondary banner?,Cette bannière est statique.
+How many groups are listed in the 'Produits neuves' section?,quatre
+What happens when you click on the 'Afficher plus' link?,La page Neuf contenant toutes les offres.
+What is the purpose of the icons in a procedure simple section?,To facilitate understanding of the financing steps
+How many options are available in the procedure simple section?,"Three: Choisissez, Simuler, Financer"
+What is displayed when clicking on a logo in the 'Toutes les marques' section?,The color of the logo changes
+What type of content can be found in the Actualités/BLOG section?,Recent blogs with images and descriptions
+What is the purpose of the 'Afficher plus' button in the 'Toutes les marques' section?,To redirect to a page showing all brands
+What can the user do to access the blog in its entirety?,The user can click on the ‘Afficher plus’ button
+How can the user access a list of all blogs?,The user can click on the ‘Afficher plus’ button
+What is the purpose of the FAQ section?,It contains a list of frequent questions
+How does the FAQ section work?,The user can click on the arrow button to view the answers to the questions
+What information is contained in the Static Section,"Services, Livraison, and Moyen de paiements"
+How can you sign up for the newsletter?,You can sign up for the newsletter by adding your email address and clicking on the button to complete the registration through the 'Inscrivez-vous pour recevoir des offres' section.
+What is the purpose of the 'NewsLetter' widget?,The 'NewsLetter' widget allows users to sign up for the newsletter.
+What is the purpose of the 'Réseaux sociaux' widget?,The 'Réseaux sociaux' widget permits redirection of users to the official marketplace page on social networks.
+Where can you sign up for the newsletter?,You can sign up for the newsletter through the section 'Inscrivez-vous pour recevoir des offres'.
+What happens when you click on the button to complete the registration?,"When you click on the button to complete the registration, your email address is added and you are signed up for the newsletter."
+What is the requirement for the 'Libellé concessionnaire' field?,It must be alphabetic and contain at least 3 characters
+How many characters should a 'Matricule fiscal' contain?,7 digits and 1 letter
+What is the requirement for the 'Adresse' field?,It must contain letters and numbers
+What is the minimum character requirement for the 'Nom responsable' and 'Prénom responsable' fields?,At least 3 characters
+What is required in an 'Email' field?,It must contain the '@' symbol
+Where can you access the 'Page neuf' from?,The menu in the top of each page
+What does the 'Page neuf' contain?,"A secondary static banner, detailed filter, and product list"
+What is one of the contents of the 'Page neuf'?,A secondary static banner
+What is another content of the 'Page neuf'?,Detailed filter
+What can you find in the 'Page neuf'?,Product list
+Is this bannière static?,Yes
+What type of page is being referred to?,Technique
+What is the specific detail mentioned about the bannière?,It is static.
+Is this referring to a technical specification?,Yes
+"What kind of page is being referred to, according to the text?",Fiche Technique
+Where can you access the PopUp Comparateur?,From the home or neuf page
+What does the 'ajouter un produit' button do?,It redirects the user to the 'Choisir un produit à comparer' form
+What happens when you click on the 'voir la comparaison' button?,It directs you to the comparator page
+What does the 'tout supprimer' button do?,It allows you to remove all added products
+Where is the PopUp Comparateur located on its main page?,"There is no mention of this, but it's likely a separate section or page"
+Where can the user access the 'Comparator' page?,"The user can access the 'Comparator' page from the menu at the top of each page, PopUp Comparateur, or Sticky Menu."
+How else can the user access the 'Comparator' page?,The user can also access the 'Comparator' page by clicking on the comparison icon in the product box displayed in Offre à la une.
+What is the sticky menu?,Sticky Menu
+Where is the comparison icon located?,The comparison icon is located in the product box displayed in Offre à la une.
+What does the page 'Comparator' contain?,La page Comparateur contient
+What is the first step to create a customer account?,Click on the 'Connexion' button
+What can you do when you click on the 'Connexion' button?,A pop-up of connexion appears and allows you to: 
+How many options are available for connecting via the pop-up?,"Three: via the formulaire de connexion, via a Google account, or via a Facebook account"
+What is another option available in the pop-up?,To sign up
+What happens when you click on the 'Connexion' button?,A pop-up of connexion appears
+What information is required to connect?,"Adresse e-mail ou bien le numéro mobile, mot de passe"
+What character must the email contain?,"""@"""
+How many digits/letters are required in the password for it to be valid?,at least one
+What happens after 5 unsuccessful attempts at logging in?,the button connection becomes blocked
+What is checked during the first login attempt?,compatibility and correctness of the data
+What is the first step to take after clicking on the 'inscription' button?,A pop-up appears that allows you to write a code which will be sent by SMS or email
+Are there alternative methods for registration?,"Yes, through a Facebook account by clicking on 'Inscription avec Facebook' or through a Google account by clicking on 'Inscription avec Google'"
+What is the purpose of the initial login after registration?,To change your password and have access to all functionalities of the personal account
+How can you register for a new account initially?,By clicking on the 'inscription' button
+What information do you need to provide when registering through the pop-up method?,You need to write a code which will be sent by SMS or email
+What happens if an email is not unique when creating a new account?,The system will refuse the creation of the account and display an error message because there already exists another user who uses the same email.
+How long can an inactive user stay logged in before their account is automatically disconnected?,More than 10 minutes
+What are the required fields to change a password?,"The current password, the new password (which must contain at least 8 characters and include uppercase letters and special characters), and confirm the new password"
+What happens if you forget your password and try to reset it?,"You will be taken through a process of entering your email address, which will then be verified; after verification, the system will send a link to complete the rest of the form and reset the password"
+What is required for a new password?,The new password must contain at least 8 characters and include uppercase letters and special characters
+What information is displayed for each concessionaire?,"Adresse, Téléphone Mobile, Fax"
+How do you access the concessionnaire interface?,En accédant à ‘Concessionnaire’ depuis le menu en haut de chaque page
+What types of information are requested in the contact form for a concessionaire?,"Nom, Prénom, Téléphone, Adresse e-mail, Objet"
+Where is the concessionnaire interface located on each page?,Dans le menu en haut de chaque page
+What information does the contact form contain for a concessionaire?,"Les formulaires suivants : Nom, Prénom, Téléphone, Adresse e-mail, Objet"
+What is the way to access the blog?,"Pour consulter le blog il suffit de cliquer sur “Actualités” dans le menu , ou de visualiser la liste des blogs dans la section “Actualités / Blog” dans la page “Home”."
+What can be found on the actualities page?,"Cette page contient tous les blogs et chaque blog composé de : • Une image, • Un titre, • Une description, • Une date de publication"
+How to see more news and blogs,"En appuyant sur le bouton “afficher plus”, l’utilisateur sera redirigé vers la page contenant toutes les actualités."
+What are the components of each blog?,"Une image, • Un titre, • Une description, • Une date de publication"
+How to access news and blogs,"Il suffit de cliquer sur “Actualités” dans le menu , ou de visualiser la liste des blogs dans la section “Actualités / Blog” dans la page “Home”."
+What is the purpose of the 'voir détails' button?,It allows you to view more details about the blog
+What information is displayed when clicking on the 'voir détails' button?,"The blog with all its information, including an interior image in addition to the vitrine image and paragraphs"
+Is there a 'Acheter' (Buy) button available,Yes
+What happens when you click on the 'simuler' button?,It redirects you to the simulator page
+Is there a separate button for simulating something?,"Yes, it's called 'PopUp simulateur'"
+What is the website called?,Page simulateur
+Is this a simulation page?,Yes
+What does the page do?,simulate
+What kind of simulator is it?,(not specified)
+Is there any additional information provided about the simulator?,No
+What is the purpose of the Espace Client?,"Le client doit être connecté après avoir créé un compte particulier afin d’accéder à ses informations personnelles, effectuer des demandes de financements, les consulter, suivre tout le processus de ses demandes de financements, gérer ses justificatifs, gérer ses devis et passer des rendez-vous."
+What does the menu vertical contain?,"Le menu vertical contient les rubriques suivantes : Tableau de bord, Mon profil, Véhicule, Mes financements, Mes devis, Mes documents, Mobile, Médical, Immobilier, Electroménager et Mes Rendez-vous"
+What can the client do after logging in?,"Le client peut accéder à ses informations personnelles, effectuer des demandes de financements, les consulter, suivre tout le processus de ses demandes de financements, gérer ses justificatifs, gérer ses devis et passer des rendez-vous."
+What are the different categories in the menu vertical?,"Les catégories dans le menu vertical sont : Véhicule, Mobile, Médical, Immobilier et Electroménager"
+How can a client get in touch with someone?,Le client peut contacter un chargé
+What are the main categories when clicking on each store?,"Mes financements, Mes devis, and Mes documents"
+What is one of the sub-sections within a store?,Mes financements
+Are there any specific categories listed under each store?,Yes
+How many main categories are mentioned in the text?,3
+What is another sub-section mentioned in the text?,Mes devis
+What is the purpose of the tableau de bord?,Le tableau de bord contient toutes les informations du compte de client et ses dernières modifications sous forme des box
+What type of information does the Financement section display?,le nombre de financement en cours
+How many types of notifications are displayed in the Notifications non lues section?,le nombre des notifications non lus
+What can you navigate to by clicking on the Simulateur button?,l’espace de simulation
+What type of information does the Ça peut vous intéresser section display?,les articles qui peuvent être intéressants pour le client
+What is required to update personal information?,"To update personal information, you just need to click on “Mon profil”."
+Where does clicking the 'Changer mot de passe' button redirect a client?,Clicking the 'Changer mot de passe' button redirects a client to a page containing input fields.
+What type of characters must a new password contain?,"A new password must contain at least one digit, letter minuscule or majuscule and numbers."
+What is the purpose of the 'Mot de passe actuel' field?,The 'Mot de passe actuel' field allows you to write your current password.
+What information do you need to provide for a new password?,You need to provide your old password and the new password.
+What is the purpose of writing a new password twice?,Permet d'écrire le même nouveau mot de passe pour la confirmation.
+What happens when you click on the 'Enregistrer les changements' button?,Un popUp de confirmation s’affiche.
+Do I need to be logged in with a client account to add a financing request,"Oui, il faut se connecter avec un compte client."
+What are the steps required to submit a first-time financing request?,Il doit passer par l’étape relation Client.
+What types of identifiers can I choose from when adding a financing request?,"Matricule fiscal, CIN, Registre de commerce, Identifiant Unique, Identifiant client"
+What are the steps to follow to choose a product?,The client must follow the steps by choosing the product according to the offers on the front page and click on 'Financer'.
+What is required of the client at the beginning?,The client must choose the product according to the offers on the front page and click on 'Financer'.
+What action does the client need to take first?,Clicking on 'Financer'.
+How can the client proceed with selecting a product?,By choosing the product according to the offers on the front page and clicking on 'Financer'.
+What is the next step after product selection?,Clicking on 'Financer'.

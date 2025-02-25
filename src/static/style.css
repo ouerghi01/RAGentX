@@ -1,0 +1,200 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .messenger {
+    width: 100%;
+    max-width: 800px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  header {
+    background-color: rgb(95, 95, 144);
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    color: white;
+  }
+
+  .logo img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+  }
+
+  main {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  
+  footer {
+    background: white;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid #ccc;
+    position: sticky;
+    bottom: 0;
+  }
+
+  form {
+    display: flex;
+    width: 100%;
+    background: #f4f4f4;
+    border-radius: 24px;
+    padding: 8px;
+    align-items: center;
+  }
+
+  textarea {
+    flex: 1;
+    width: 100%;
+    height: 40px;
+    resize: none;
+    border: none;
+    background: transparent;
+    padding: 10px;
+    font-size: 1rem;
+    outline: none;
+  }
+  
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: black;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    transition: 0.2s ease-in-out;
+  }
+
+  button:disabled {
+    background: #d7d7d7;
+    color: #f4f4f4;
+    cursor: not-allowed;
+  }
+
+  button:hover:not(:disabled) {
+    opacity: 0.7;
+  }
+  
+  #messages {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .message {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+  
+  .user {
+    justify-content: flex-end;
+    background-color: #d1e7dd; /* Light green for user messages */
+  }
+  
+  .ai {
+    justify-content: flex-start;
+    background-color: #f0f0f0; /* Light gray for AI messages */
+  }
+  
+  .message-icon {
+    flex-shrink: 0;
+    margin-right: 10px;
+  }
+  
+  .icon-letter {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #007bff; /* Blue for user icon */
+    border-radius: 50%;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .bot-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .message-content {
+    flex: 1;
+    line-height: 1.5;
+    color: #333;
+  }
+  
+  .evaluation-form {
+    margin-top: 20px;
+  }
+  .evaluation-form form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
+  .submit-button {
+    padding: 10px 15px;
+    width: 50px;
+    background-color: #007bff; /* Blue button */
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .submit-button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+  }
+  
+  .timestamp {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #aaa;
+  }
+  
