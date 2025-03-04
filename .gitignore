@@ -1,0 +1,10 @@
+.venv
+ 
+/src/uploads/*
+/src/token.json/
+/src/sec/
+ollama/
+git
+ollama
+/src/.ipynb_checkpoints/
+/src/.env
