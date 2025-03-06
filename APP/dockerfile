@@ -1,0 +1,21 @@
+# Use an official Python image
+FROM python:3.11-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download the Hugging Face model
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-MiniLM-L6-v2')"
+
+# Copy application files
+COPY . .
+
+# Expose port for FastAPI
+EXPOSE 8000
+
+# Start the FastAPI application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

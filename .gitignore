@@ -1,0 +1,15 @@
+.venv
+ 
+/APP/uploads/
+/APP/Untitled.ipynb
+
+/APP/token.json/
+/APP/sec/
+
+ollama/
+git
+ollama
+/APP/.ipynb_checkpoints/
+/APP/.env
+/APP/exemples/
+docs

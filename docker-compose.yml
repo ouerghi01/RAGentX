@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra
+    ports:
+      - "9042:9042"  # Cassandra CQL port
+    environment:
+      - CASSANDRA_CLUSTER_NAME=MyCassandraCluster
+      - CASSANDRA_DC=DC1
+      - CASSANDRA_RACK=Rack1
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    networks:
+      - cassandra-net
+    restart: always
+
+networks:
+  cassandra-net:
+    driver: bridge
+
+volumes:
+  cassandra-data:
+    driver: local
