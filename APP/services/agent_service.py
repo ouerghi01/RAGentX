@@ -35,22 +35,28 @@ from langchain_community.document_loaders import (
     unstructured,
     
 )
+
+
 from services.pdf_service import PDFService
 from langchain.chains import RetrievalQA
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 load_dotenv()  # take environment variables from .env.
+os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 from langchain_community.document_loaders import PDFPlumberLoader  
 from langchain_community.embeddings import HuggingFaceEmbeddings  
 from langchain_community.vectorstores.cassandra import Cassandra
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA,conversational_retrieval
+from langchain.chains import RetrievalQA
 from langchain.chains import LLMChain
+
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain_experimental.text_splitter import SemanticChunker
 from services.cassandra_service import CassandraInterface
 from flashrank import Ranker 
+
+from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -128,7 +134,7 @@ class AgentInterface:
         compressor = FlashrankRerank(model="ms-marco-MiniLM-L-12-v2", top_n=3)
         self.CassandraInterface=CassandraInterface()
         self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
-
+        
         self.semantic_chunker = SemanticChunker (
         self.hf_embedding, 
         )
@@ -145,32 +151,14 @@ class AgentInterface:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             },
         )
+        self.chat_up=ChatUpstage()
+
+        self.groundedness_check = UpstageGroundednessCheck()
 
         self.documents=self.load_pdf_documents_fast()
         self.parent_store = InMemoryStore()
 
-        self.bm25_retriever=BM25Retriever.from_documents(self.documents)
-        self.bm25_retriever.k=2 
-        self.parent_retriever=self.configure_parent_child_splitters()
-        
-        self.parent_retriever.add_documents(self.documents)
-
-        self.retrieval=self.astra_db_store.as_retriever(
-            search_type="mmr",
-            search_kwargs={'k': 5, 'fetch_k': 50}
-        )
-        self.ensemble_retriever_new = EnsembleRetriever(retrievers=[self.parent_retriever, self.retrieval],
-                                        weights=[0.4, 0.6])
-        self.multi_retriever = MultiQueryRetriever.from_llm(
-            self.ensemble_retriever_new
-         , llm=self.llm_gemini
-        )
-        self.ensemble_retriever = EnsembleRetriever(retrievers=[self.bm25_retriever, self.multi_retriever],
-                                        weights=[0.4, 0.6])
-        self.compression_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor,
-        base_retriever=self.ensemble_retriever
-        )
+        self.compression_retriever=self.setup_ensemble_retrievers(compressor)
         #https://aistudio.google.com/app/u/2/apikey
         
         self.combine_documents_chain=None
@@ -179,6 +167,52 @@ class AgentInterface:
         self.memory = ConversationSummaryMemory(llm=self.llm_gemini,memory_key="chat_history",return_messages=True)
         
         self.chain=self.retrieval_chain(self.llm_gemini)
+
+    def setup_ensemble_retrievers(self, compressor):
+        """
+        Sets up an ensemble of retrievers for enhanced document retrieval.
+        This method configures multiple retrievers and combines them using ensemble and compression techniques:
+        - BM25 retriever for keyword-based search
+        - Parent-child retriever for hierarchical document structure
+        - AstraDB retriever with MMR search
+        - Multi-query retriever using Gemini LLM
+        - Final ensemble combining different retrieval approaches with compression
+        Args:
+            compressor: A compressor instance used for contextual compression of retrieved documents
+        Returns:
+            None - Sets up instance attributes for various retrievers
+        Instance Attributes Set:
+            bm25_retriever: BM25-based retriever instance
+            parent_retriever: Parent-child document structure retriever
+            retrieval: AstraDB retriever with MMR search
+            ensemble_retriever_new: First level ensemble combining parent and AstraDB retrievers
+            multi_retriever: Multi-query retriever using the first ensemble
+            ensemble_retriever: Final ensemble combining BM25 and multi-query retrievers
+            compression_retriever: Compressed version of the final ensemble retriever
+        """
+        bm25_retriever=BM25Retriever.from_documents(self.documents)
+        bm25_retriever.k=2 
+        parent_retriever=self.configure_parent_child_splitters()
+        
+        parent_retriever.add_documents(self.documents)
+
+        retrieval=self.astra_db_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={'k': 5, 'fetch_k': 50}
+        )
+        ensemble_retriever_new = EnsembleRetriever(retrievers=[parent_retriever, retrieval],
+                                        weights=[0.4, 0.6])
+        multi_retriever = MultiQueryRetriever.from_llm(
+            ensemble_retriever_new
+         , llm=self.llm_gemini
+        )
+        ensemble_retriever = EnsembleRetriever(retrievers=[bm25_retriever, multi_retriever],
+                                        weights=[0.4, 0.6])
+        compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=ensemble_retriever
+        )
+        return compression_retriever
 
     def setup_vector_store(self) -> None:
         """
@@ -210,7 +244,7 @@ class AgentInterface:
             token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
             api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
             )
-            #self.astra_db_store.clear()
+            self.astra_db_store.clear()
         except Exception as e:
             print(f"Error initializing AstraDBVectorStore: {e}")
             self.hf_embedding=HuggingFaceEmbeddings(
@@ -257,7 +291,7 @@ class AgentInterface:
                 "question": RunnablePassthrough()
             }
             | PromptTemplate.from_template(self.prompt)
-            | llm
+            | self.chat_up
             | StrOutputParser()
         )
 
@@ -608,13 +642,26 @@ class AgentInterface:
             final_answer=None
             #chat_history = self.CassandraInterface.get_chat_history(session_id)
             try:
+                context=self.compression_retriever.invoke(question_enhanced)
+                context_memory= self.memory.load_memory_variables({}).get("chat_history", [])
+                if context_memory:
+                    context_memory = "\n".join([msg.content for msg in context_memory])
+                    context = f"{context}\n{context_memory}"
                 final_answer = self.chain.invoke(question_enhanced)
+                gc_result=self.groundedness_check.invoke({
+                "context": context,
+                "answer": final_answer,
+                })
+                if gc_result.lower().startswith("grounded"):
+                    print("Grounded")
+                else:
+                    print("Not Grounded")
             except Exception as e:
                 print(f"End usage of api gemini {e}")
                 self.chain=self.retrieval_chain(self.llm)
                 final_answer = self.chain.invoke(question_enhanced)
-            final_answer= self.answer_rewriting(final_answer,question)
-            self.memory.save_context({"question": question}, {"answer": final_answer})
+            final_answer= self.answer_rewriting(f"{final_answer}",question)
+            self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
 
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
             return {"request": request, "answer": final_answer, "question": question,"evaluation":True}
