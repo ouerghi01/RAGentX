@@ -1,5 +1,8 @@
 from langchain_community.document_loaders import CassandraLoader
 from langchain.retrievers import ContextualCompressionRetriever
+import logging
+import time
+from collections import OrderedDict
 from langchain.retrievers.document_compressors import FlashrankRerank
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
@@ -8,6 +11,7 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
+import uuid
 from langchain.retrievers.multi_query import MultiQueryRetriever
 
 from langchain.storage import InMemoryStore
@@ -57,6 +61,7 @@ from services.cassandra_service import CassandraInterface
 from flashrank import Ranker 
 
 from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
+
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -122,7 +127,10 @@ class AgentInterface:
         """
         
         self.role=role
+        self.setup_logging()
         self.prompt=None
+        self.cache = OrderedDict()
+        self.cache_ttl = 300
         self.UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR"))  
         self.MODEL_NAME_llm=os.getenv("MODEL_NAME")
         self.BASE_URL_OLLAMA=os.getenv("OLLAMA_BASE_URL")
@@ -154,20 +162,32 @@ class AgentInterface:
         self.chat_up=ChatUpstage()
 
         self.groundedness_check = UpstageGroundednessCheck()
-
-        self.documents=self.load_pdf_documents_fast()
+        
+        self.documents,self.summaries,self.docs_ids=self.load_pdf_documents_fast()
         self.parent_store = InMemoryStore()
 
-        self.compression_retriever=self.setup_ensemble_retrievers(compressor)
-        #https://aistudio.google.com/app/u/2/apikey
-        
+        self.compression_retriever= self.setup_ensemble_retrievers(compressor)
+       
+     
         self.combine_documents_chain=None
 
         self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
         self.memory = ConversationSummaryMemory(llm=self.llm_gemini,memory_key="chat_history",return_messages=True)
         
         self.chain=self.retrieval_chain(self.llm_gemini)
-
+    def setup_logging(self):
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+    def cache_answer(self, question, answer):
+        current_time = time.time()
+        self.cache[question] = (answer, current_time)
+        self.cleanup_cache()
+    def cleanup_cache(self):
+        current_time = time.time()
+        keys_to_delete = [key for key, (_, timestamp) in self.cache.items() if current_time - timestamp >= self.cache_ttl]
+        for key in keys_to_delete:
+            del self.cache[key]
+    
     def setup_ensemble_retrievers(self, compressor):
         """
         Sets up an ensemble of retrievers for enhanced document retrieval.
@@ -194,7 +214,8 @@ class AgentInterface:
         bm25_retriever.k=2 
         parent_retriever=self.configure_parent_child_splitters()
         
-        parent_retriever.add_documents(self.documents)
+        self.add_documents_to_parent_retriever(parent_retriever)
+
 
         retrieval=self.astra_db_store.as_retriever(
             search_type="mmr",
@@ -214,6 +235,28 @@ class AgentInterface:
         )
         return compression_retriever
 
+    def add_documents_to_parent_retriever(self, parent_retriever):
+        parent_retriever.vectorstore.aadd_documents(
+        documents=self.documents,
+        )
+        parent_retriever.vectorstore.aadd_documents(
+        documents=self.summaries,
+        )
+        
+        parent_retriever.docstore.mset(list(zip(self.docs_ids, self.documents)))
+        for i,doc in enumerate(self.documents):
+            doc.metadata["doc_id"] =self.docs_ids[i]
+        
+        parent_retriever.vectorstore.aadd_documents(
+        documents=self.documents,
+        )
+    def get_cached_answer(self, question):
+        current_time = time.time()
+        if question in self.cache:
+            answer, timestamp = self.cache[question]
+            if current_time - timestamp < self.cache_ttl:
+                return answer
+        return None
     def setup_vector_store(self) -> None:
         """
         Sets up the vector store for document storage and retrieval.
@@ -504,11 +547,19 @@ class AgentInterface:
             - Skips any None documents during processing
         """
         documents = []
+        summaries = []
+        docs_ids=[]
+        chain = (
+        {"doc": lambda x: x.page_content}
+        | ChatPromptTemplate.from_template("Summarize the following document:\n\n{doc}")
+        | self.chat_up
+        | StrOutputParser()
+        )
         if bool==True:
             self.UPLOAD_DIR.mkdir(exist_ok=True) 
             docs=[]
             for file in os.listdir(self.UPLOAD_DIR):
-                if file.endswith(".pdf"):
+                if file.endswith(".pdf") and os.path.isfile(self.UPLOAD_DIR / file):
                     
                         full_path = self.UPLOAD_DIR/ file
                         loader = PDFPlumberLoader(full_path)
@@ -517,11 +568,20 @@ class AgentInterface:
             for doc in docs:
                 if doc is not None:
                     chunks = self.semantic_chunker.split_documents(doc)
+                    summaries_x = chain.batch(chunks, {"max_concurrency": 5})
+                    doc_ids = [str(uuid.uuid4()) for _ in chunks]
+                    summary_docs = [
+                        Document(page_content=s, metadata={"doc_id": doc_ids[i]})
+                        for i, s in enumerate(summaries_x)
+                    ]
+
                     documents.extend(chunks)  
+                    summaries.extend(summary_docs)
+                    docs_ids.extend(doc_ids)
             
         #self.load_documents_from_cassandra(documents)
                 
-        return documents
+        return documents, summaries,docs_ids
     def load_pdf_v2(self):
         documents = []
         for filename in os.listdir(self.UPLOAD_DIR):
@@ -542,7 +602,6 @@ class AgentInterface:
     def process_elements_to_documents(self,elements):
         documents = []
         current_doc = None
-
         for el in elements:
             if el.category in ["Header", "Footer"]:
                 continue # skip these
@@ -634,13 +693,15 @@ class AgentInterface:
         Raises:
             Any exceptions from underlying services (CassandraInterface, retrieval_chain) are not explicitly handled
         """
-        exist_answer=self.CassandraInterface.find_same_reponse(question)
+        self.logger.info(f"Received question: {question}")
+        exist_answer=self.get_cached_answer(question)
+        Grounded=False
         if exist_answer is not None:
             return{"request": request, "answer": exist_answer.answer, "question": question,"partition_id":exist_answer.partition_id,"timestamp":exist_answer.timestamp,"evaluation":True}
         else:
             question_enhanced= question 
             final_answer=None
-            #chat_history = self.CassandraInterface.get_chat_history(session_id)
+            
             try:
                 context=self.compression_retriever.invoke(question_enhanced)
                 context_memory= self.memory.load_memory_variables({}).get("chat_history", [])
@@ -648,21 +709,25 @@ class AgentInterface:
                     context_memory = "\n".join([msg.content for msg in context_memory])
                     context = f"{context}\n{context_memory}"
                 final_answer = self.chain.invoke(question_enhanced)
+                self.logger.info(f"Answer provided: {final_answer}")
                 gc_result=self.groundedness_check.invoke({
                 "context": context,
                 "answer": final_answer,
                 })
                 if gc_result.lower().startswith("grounded"):
                     print("Grounded")
+                    Grounded=True
                 else:
                     print("Not Grounded")
+                    Grounded=False
             except Exception as e:
-                print(f"End usage of api gemini {e}")
+                self.logger.error(f"Error while answering question: {e}")
                 self.chain=self.retrieval_chain(self.llm)
                 final_answer = self.chain.invoke(question_enhanced)
             final_answer= self.answer_rewriting(f"{final_answer}",question)
+            self.cache_answer(question, final_answer)
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
 
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
-            return {"request": request, "answer": final_answer, "question": question,"evaluation":True}
+            return {"request": request, "answer": final_answer, "question": question,"evaluation":Grounded}
 
