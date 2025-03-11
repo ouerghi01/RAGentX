@@ -11,7 +11,7 @@ import asyncio
 from services.auth_service import AuthService
 from services.cassandra_service import CassandraInterface
 from fastapi import  FastAPI
-
+import random
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
@@ -63,8 +63,21 @@ class FastApp :
         self.app.add_api_route("/send_message/", self.send_message, methods=["POST"])
         self.app.add_api_route("/register/", self.auth_service.register_user, methods=["POST"])
         self.app.add_api_route("/login/", self.auth_service.login_for_access_token, methods=["POST"])
-
-    
+        self.app.add_api_route("/uploads/", self.upload_file, methods=["POST"])
+    async def upload_file(self,request: Request):
+        file=await request.body()
+        id=random.randint(1,100000)
+        file_name="uploads/"+str(id)+".pdf"
+        with open(file_name, "wb") as f:
+            f.write(file)
+        # this is a dump implementation, you should implement a better way to handle the file
+        # like uploading to a cloud storage and then saving the link in the database
+        # or saving the file in a database
+        # or saving the file in a directory and then saving the link in the database
+        self.agent=AgentInterface("assistant",self.cassandra_intra)
+        return {
+            "message":"File uploaded successfully"
+        }
     def startup_event(self):
         """
         Initializes the application by setting up necessary components.
@@ -119,7 +132,7 @@ if __name__ == "__main__":
 #https://medium.com/@o39joey/advanced-rag-with-python-langchain-8c3528ed9ff5
 #https://python.langchain.com/api_reference/langchain/chains/langchain.chains.conversational_retrieval.base.ConversationalRetrievalChain.html
 #https://github.com/langchain-ai/langchain/discussions/9158*
-
+#https://github.com/michelderu/build-your-own-rag-chatbot/blob/main/app_6.py
 
 
 

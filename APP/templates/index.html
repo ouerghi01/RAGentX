@@ -27,20 +27,20 @@
     </div>
 
     <div id="login" class="form-container active">
-      <form hx-post="/login/" hx-trigger="submit" hx-swap="none">
-        <input type="text" name="username" placeholder="Username">
-        <input type="password" name="password" placeholder="Password">
-        <button type="submit">Login</button>
+      <form hx-post="/login/" hx-trigger="submit" style="display: flex; flex-direction: column;" hx-swap="none">
+        <input style="width: fit-content; " type="text" name="username" placeholder="Username">
+        <input style="width: fit-content; " type="password" name="password" placeholder="Password">
+        <button style="width: fit-content;" type="submit">Login</button>
       </form>
     </div>
 
     <div id="register" class="form-container">
-        <form hx-post="/register/" hx-trigger="submit" hx-target="#register" hx-swap="outerHTML">
-            <input type="text" name="username" placeholder="Username">
-            <input type="email" name="email" placeholder="Email">
-            <input type="text" name="his_job" placeholder="Your Job">
-            <input type="password" name="password" placeholder="Password">
-            <button type="submit">Register</button>
+        <form hx-post="/register/" hx-trigger="submit" hx-target="#register"  style="display: flex; flex-direction: column;" hx-swap="outerHTML">
+            <input style="width: fit-content;" type="text" name="username" placeholder="Username">
+            <input style="width: fit-content;" type="email" name="email" placeholder="Email">
+            <input style="width: fit-content;" type="text" name="his_job" placeholder="Your Job">
+            <input style="width: fit-content;" type="password" name="password" placeholder="Password">
+            <button style="width: fit-content;" type="submit">Register</button>
         </form>
     </div>
     <div

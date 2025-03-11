@@ -89,6 +89,32 @@ function showUIUploadPDF() {
   saveButton.addEventListener("mouseenter", () => saveButton.style.backgroundColor = "#0056b3");
   saveButton.addEventListener("mouseleave", () => saveButton.style.backgroundColor = "#007bff");
   uploadpdf.appendChild(saveButton);
+  saveButton.onclick = function () {
+      const file = input.files[0];
+      if (!file) {
+          alert("Please select a file to upload");
+          return;
+      }
+      if (file.size > 200 * 1024 * 1024) {
+          alert("File size exceeds the limit of 200 MB");
+          return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      fetch("/uploads/", {
+          method: "POST",
+          body: formData,
+      })
+          .then((response) => response.json())
+          .then((data) => {
+              alert(data.message);
+          })
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+  }
+
 }
 
 function showLoggedInState(username) {
@@ -160,6 +186,14 @@ if (typeof(Storage) !== "undefined") {
 
       document.getElementById(tab + '-tab').classList.add('active');
       document.getElementById(tab).classList.add('active');
+      if (tab === 'login') {
+          document.getElementById('register').style.display = 'none';
+          document.getElementById('login').style.display = 'flex';
+      }else{
+          document.getElementById('login').style.display = 'none';
+          document.getElementById('register').style.display = 'flex';
+          
+      }
     }
   document.addEventListener("htmx:afterRequest", function(event) {
       // Check if the request was for login

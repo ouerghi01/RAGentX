@@ -26,15 +26,11 @@ from langchain_core.runnables import RunnablePassthrough
 
 from langchain_core.documents import Document
 from langchain.memory import ConversationSummaryMemory
-from langchain.chains import ConversationalRetrievalChain
 from dotenv import load_dotenv
 import os 
 from pathlib import Path
 from langchain.retrievers import BM25Retriever, EnsembleRetriever
-from langchain.chains import (
-    create_history_aware_retriever,
-    create_retrieval_chain,
-)
+
 
 from langchain_community.document_loaders import (
     unstructured,
@@ -43,9 +39,7 @@ from langchain_community.document_loaders import (
 
 
 from services.pdf_service import PDFService
-from langchain.chains import RetrievalQA
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 from langchain_community.document_loaders import PDFPlumberLoader  
@@ -401,153 +395,9 @@ class AgentInterface:
         )
         retrieval_query = llm_chain.invoke({"query": query, "context": context})
         return retrieval_query['text']
-    def build_q_a_process(self):
-        """Builds a question answering process using a language model and a retriever.
-        This method initializes and configures a question answering pipeline that leverages a language model (either `self.llm_gemini` or `self.llm`) and a retriever (`self.compression_retriever`) to answer questions based on a provided context.
-        The process involves the following steps:
-        1.  **Define a prompt:** A prompt is defined to guide the language model in generating answers based on the context and question. The prompt instructs the model to:
-            *   Answer questions using only the provided context.
-            *   Respond with "Je ne sais pas." if the answer is not in the context.
-            *   Provide concise answers (maximum three sentences).
-            *   Explain the usage and purpose of tools, functionalities, or concepts mentioned in the context.
-            *   Avoid making assumptions or extrapolating information.
-            *   Provide relevant suggestions based on the context, if possible.
-        2.  **Create an LLMChain:** An `LLMChain` is created using the language model and the defined prompt. This chain is responsible for generating answers based on the context and question. If `self.llm_gemini` fails, it falls back to `self.llm`.
-        3.  **Define a document prompt:** A document prompt is defined to format the input documents for the language model. This prompt includes the page content and the source of the document.
-        4.  **Create a StuffDocumentsChain:** A `StuffDocumentsChain` is created to combine the documents retrieved by the retriever into a single context for the language model. This chain uses the `LLMChain` and the document prompt to format the documents and pass them to the language model.
-        5.  **Create a RetrievalQA object:** A `RetrievalQA` object is created to combine the retriever and the document chain into a single question answering pipeline. This object takes a question as input, retrieves relevant documents using the retriever, combines the documents into a context using the document chain, and generates an answer using the language model.
-        Returns:
-            RetrievalQA: A `RetrievalQA` object that can be used to answer questions based on the provided context.
-
-       """
    
-        prompt = """
-        Je suis un agent intelligent conçu pour répondre aux questions en m’appuyant exclusivement sur les informations contenues dans la documentation fournie. Mon objectif est de fournir des réponses précises, claires et concises, tout en respectant les limites du contexte disponible.  
-
-        📌 **Directives pour formuler les réponses :**  
-        1. **Utilisation stricte du contexte** : Je dois répondre uniquement en me basant sur les informations du contexte fourni.  
-        2. **Gestion des inconnues** : Si la réponse n’est pas présente dans la documentation, je dois répondre : *"Je ne sais pas."*  
-        3. **Clarté et concision** : Les réponses doivent être courtes (maximum trois phrases), sans ajouter d’informations non mentionnées dans le contexte.  
-        4. **Explication des fonctionnalités** : Si le contexte mentionne un outil, une fonctionnalité ou un concept spécifique, je dois expliquer son utilisation et son objectif.  
-        5. **Aucune supposition** : Je ne dois jamais inventer ou extrapoler des informations non fournies.  
-        6. **Recommandation pertinente** : Si possible, je peux donner une suggestion utile basée sur le contexte.  
-
-        📖 **Contexte** :  
-        {context}  
-
-        ❓ **Question** :  
-        {question}  
-
-        ✍️ **Réponse** :
-
-        """
-
-        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["context", "question"])
-
-        try:
-            llm_chain = LLMChain(
-            llm=self.llm_gemini, 
-            prompt=QA_CHAIN_PROMPT, 
-            callbacks=None, 
-            verbose=True
-            )
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            llm_chain = LLMChain(
-            llm=self.llm, 
-            prompt=QA_CHAIN_PROMPT, 
-            callbacks=None, 
-            verbose=True
-            )
-
-        document_prompt = PromptTemplate(
-            template="Context:\ncontent:{page_content}\nsource:{source}",  
-            input_variables=["page_content", "source"]  
-        )
-        
-        self.combine_documents_chain = StuffDocumentsChain(
-            llm_chain=llm_chain,  
-            document_variable_name="context",
-            callbacks=None,
-            document_prompt=document_prompt  
-        )
-        qa = RetrievalQA(
-            combine_documents_chain=self.combine_documents_chain,  
-            retriever=self.compression_retriever,
-            verbose=True
-        )
-        return qa
-    # best way to handle conversation history 
-    def build_retrieval_history(self):
-        """Builds a conversational retrieval chain for question answering.
-
-            This method initializes and configures a ConversationalRetrievalChain using
-            the specified language model, retriever, and memory. The chain is designed
-            to handle conversational question answering, leveraging the retriever to
-            fetch relevant documents and the memory to maintain conversation history.
-
-            Returns:
-                ConversationalRetrievalChain: A configured conversational retrieval chain.
-            """
-        qa = ConversationalRetrievalChain.from_llm(self.llm_gemini, retriever=self.compression_retriever, memory=self.memory)
-        return qa
-    def build_retrieval_chain_history(self):
-        contextualize_q_system_prompt = (
-        "Given a chat history and the latest user question, "
-        "which may reference context in the chat history, "
-        "formulate a standalone question which can be understood "
-        "without the chat history. If no chat history exists, use "
-        "the available context to understand and reformulate the question. "
-        "Do NOT answer the question, just reformulate it if needed."
-        "Consider both chat history and context when available, "
-        "but be able to work with either one independently."
-        )
-
-        # Define the contextualization prompt template
-        contextualize_q_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", contextualize_q_system_prompt),
-                MessagesPlaceholder(variable_name="chat_history"),
-                ("human", "{input}"),
-            ]
-        )
-        history_aware_retriever = create_history_aware_retriever(
-        self.llm, self.compression_retriever, contextualize_q_prompt
-        )
-        qa_system_prompt = (
-            f"You are part of a multi-agent system designed to answer questions. Your role is: Mohamed Aziz Werghi 🤖\n"
-            "Each agent will contribute to answering the question based on their assigned context from the document. "
-            "You must act as Mohamed Aziz Werghi, and respond accordingly, contributing only relevant information based on your role:\n"
-            "When answering, structure the response clearly using bullet points or numbered lists. \n"
-            "🧠 Analysis Agent - Breaks down the question into key components.\n"
-            "📊 Expert Agent - Provides in-depth domain expertise related to the context.\n"
-            "✅ Validation Agent - Verifies the accuracy of the provided information.\n"
-            "🔍 Research Agent - Explores additional context and gathers supporting details.\n"
-            "After gathering individual contributions, a final agent will combine and deliver a concise response in no more than three sentences. 📝\n"
-            "At the end, provide a brief summary emphasizing the key factors that most affect the total loan cost. "
-            "If an agent cannot provide an answer, it should respond with 'I don't know.' ❌"
-            "Keep the explanation clear, avoiding unnecessary complexity while maintaining accuracy."
-        )
-
-        
-        qa_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", qa_system_prompt),
-                MessagesPlaceholder(variable_name="chat_history"),
-
-                ("system", "Context: {context}"),  
-                ("human", "{input}"),
-            ]
-        )
-
-        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
-
-        rag_chain = create_retrieval_chain(
-            history_aware_retriever, question_answer_chain
-        )
-
-        return rag_chain
     def load_pdf_documents_fast(self,bool=True):
+        import pandas as pd 
         """
         Loads and processes PDF documents from a specified directory with semantic chunking.
         This method reads all PDF files from the UPLOAD_DIR directory, processes them using
@@ -576,13 +426,13 @@ class AgentInterface:
             self.UPLOAD_DIR.mkdir(exist_ok=True) 
             docs=[]
             for file in os.listdir(self.UPLOAD_DIR):
-                if  file.endswith("data.pdf")==False  and file.endswith("csv")==False and os.path.isfile(self.UPLOAD_DIR / file):
+                if   file.endswith(".pdf")==True and os.path.isfile(self.UPLOAD_DIR / file):
                     
                         full_path = self.UPLOAD_DIR/ file
                         loader = PDFPlumberLoader(full_path)
                         document = loader.load()
                         docs.append(document)
-                #self.load_csv_to_documents(pd, docs, file)
+                self.load_csv_to_documents(pd, docs, file)
             for doc in docs:
                 if doc is not None:
                     print(doc)
