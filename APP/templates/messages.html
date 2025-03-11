@@ -16,10 +16,7 @@
     <div class="message-icon">
       <img src="/static/bot.png" alt="bot" class="bot-icon">
     </div>
-    <div class="message-content" style="display: flex;">
-      <p id="answer" class="ellipsis">{{ answer }}</p>
-      <button id="toggleButton" onclick="toggleText()"></button>  
-    </div>
+    {{answer}}
   </div>
 
   
@@ -51,6 +48,7 @@
 </style>
 
 <script>
+  
   function toggleText() {
       let answer = document.getElementById("answer");
       let button = document.getElementById("toggleButton");

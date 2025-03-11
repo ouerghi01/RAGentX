@@ -11,6 +11,7 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
+from fastapi.responses import HTMLResponse
 import uuid
 from langchain.retrievers.multi_query import MultiQueryRetriever
 
@@ -225,7 +226,7 @@ class AgentInterface:
                                         weights=[0.4, 0.6])
         multi_retriever = MultiQueryRetriever.from_llm(
             ensemble_retriever_new
-         , llm=self.llm_gemini
+         , llm=self.chat_up
         )
         ensemble_retriever = EnsembleRetriever(retrievers=[bm25_retriever, multi_retriever],
                                         weights=[0.4, 0.6])
@@ -317,13 +318,28 @@ class AgentInterface:
             answer = chain.invoke("What is X?")"""
         
         self.prompt = """
-        u are an intelligent agent  designed to answer questions based solely on the information provided in the context. Your goal is to provide accurate, clear, and concise answers while respecting the boundaries of the available context.
-        Answer the question based only on the supplied context. If you don't know the answer, say "I don't know".
-        Context: {context}
-        Chat History: {chat_history}
-        Question: {question}
-        Your answer:
-        """
+You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+
+### Response Guidelines:
+- Format responses using **HTML** for clear presentation.
+- Use **CSS styles** to enhance readability (e.g., fonts, colors, spacing).
+- Use headings (`<h2>`, `<h3>`), lists (`<ul>`, `<ol>`), and tables (`<table>`) where appropriate.
+- Ensure code snippets are wrapped in `<pre><code>` blocks for proper formatting.
+- If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
+
+#### Role: Mohamed Aziz Werghi 🤖  
+**Context:**  
+{context}  
+
+**Chat History:**  
+{chat_history}  
+
+**Question:**  
+{question}  
+
+**Your answer (in well-structured HTML & CSS format):**
+"""
+
         
         chain = (
             {
@@ -499,20 +515,21 @@ class AgentInterface:
         self.llm, self.compression_retriever, contextualize_q_prompt
         )
         qa_system_prompt = (
-        f"You are part of a multi-agent system designed to answer questions. Your role is: {self.role} 🤖\n"
-        "Each agent will contribute to answering the question based on specific parts of the context: \n"
-        "When answering, structure the response clearly using bullet points or numbered lists. "
-        "🧠 Analysis Agent - Breaks down the question\n"
-        "📊 Expert Agent - Provides domain expertise\n" 
-        "✅ Validation Agent - Verifies accuracy\n"
-        "🔍 Research Agent - Explores context\n"
-        "After gathering individual contributions, a final agent will combine and deliver a concise response in no more than three sentences. 📝\n"
-        "At the end, provide a brief summary emphasizing the key factors that most affect the total loan cost. "
-        "If an agent cannot provide an answer, it should respond with 'I don't know.' ❌"
+            f"You are part of a multi-agent system designed to answer questions. Your role is: Mohamed Aziz Werghi 🤖\n"
+            "Each agent will contribute to answering the question based on their assigned context from the document. "
+            "You must act as Mohamed Aziz Werghi, and respond accordingly, contributing only relevant information based on your role:\n"
+            "When answering, structure the response clearly using bullet points or numbered lists. \n"
+            "🧠 Analysis Agent - Breaks down the question into key components.\n"
+            "📊 Expert Agent - Provides in-depth domain expertise related to the context.\n"
+            "✅ Validation Agent - Verifies the accuracy of the provided information.\n"
+            "🔍 Research Agent - Explores additional context and gathers supporting details.\n"
+            "After gathering individual contributions, a final agent will combine and deliver a concise response in no more than three sentences. 📝\n"
+            "At the end, provide a brief summary emphasizing the key factors that most affect the total loan cost. "
+            "If an agent cannot provide an answer, it should respond with 'I don't know.' ❌"
             "Keep the explanation clear, avoiding unnecessary complexity while maintaining accuracy."
         )
 
-        # Define the Q&A prompt template
+        
         qa_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", qa_system_prompt),
@@ -559,14 +576,16 @@ class AgentInterface:
             self.UPLOAD_DIR.mkdir(exist_ok=True) 
             docs=[]
             for file in os.listdir(self.UPLOAD_DIR):
-                if file.endswith(".pdf") and os.path.isfile(self.UPLOAD_DIR / file):
+                if  file.endswith("data.pdf")==False  and file.endswith("csv")==False and os.path.isfile(self.UPLOAD_DIR / file):
                     
                         full_path = self.UPLOAD_DIR/ file
                         loader = PDFPlumberLoader(full_path)
                         document = loader.load()
                         docs.append(document)
+                #self.load_csv_to_documents(pd, docs, file)
             for doc in docs:
                 if doc is not None:
+                    print(doc)
                     chunks = self.semantic_chunker.split_documents(doc)
                     summaries_x = chain.batch(chunks, {"max_concurrency": 5})
                     doc_ids = [str(uuid.uuid4()) for _ in chunks]
@@ -582,6 +601,24 @@ class AgentInterface:
         #self.load_documents_from_cassandra(documents)
                 
         return documents, summaries,docs_ids
+
+    def load_csv_to_documents(self, pd, docs, file):
+        if  file.endswith(".csv") ==False:
+            file_completed = os.path.join(self.UPLOAD_DIR, file)
+            df = pd.read_csv(file_completed)
+
+            df['meta'] = df.apply(lambda row: {"source": file_completed}, axis=1)
+            records = df.to_dict('records')
+            columns = df.columns
+            ds=[]
+            for record in records:
+                full_text = "\n".join([f"{col}: {record[col]}" for col in columns])
+
+                meta = record.get('meta', {})  # Ensure metadata is retrieved safely
+                doc = Document(page_content=full_text, metadata=meta)
+
+                ds.append(doc) 
+            docs.append(ds)
     def load_pdf_v2(self):
         documents = []
         for filename in os.listdir(self.UPLOAD_DIR):
@@ -697,7 +734,7 @@ class AgentInterface:
         exist_answer=self.get_cached_answer(question)
         Grounded=False
         if exist_answer is not None:
-            return{"request": request, "answer": exist_answer.answer, "question": question,"partition_id":exist_answer.partition_id,"timestamp":exist_answer.timestamp,"evaluation":True}
+            return self.generate_message_html(question, exist_answer)
         else:
             question_enhanced= question 
             final_answer=None
@@ -722,12 +759,32 @@ class AgentInterface:
                     Grounded=False
             except Exception as e:
                 self.logger.error(f"Error while answering question: {e}")
-                self.chain=self.retrieval_chain(self.llm)
+                self.chain=self.retrieval_chain(self.chat_up)
                 final_answer = self.chain.invoke(question_enhanced)
-            final_answer= self.answer_rewriting(f"{final_answer}",question)
+            #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)
-            self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
-
+            #self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
+            
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
-            return {"request": request, "answer": final_answer, "question": question,"evaluation":Grounded}
+            return self.generate_message_html(question, final_answer)
 
+    def generate_message_html(self, question, final_answer):
+        message_html = f"""
+            <div class="message user">
+                <input type="hidden" id="partition_id" name="partition_id" value="{uuid.uuid1()}">
+                <div class="message-icon">
+                <img src="/static/icons8-user.svg" alt="bot" class="bot-icon">
+                </div>
+                <div class="message-content">
+                <p>{question}</p>
+                </div>
+            </div>
+            <div class="message ai">
+                    <div class="message-icon">
+                    <img src="/static/bot.png" alt="bot" class="bot-icon">
+                    </div>
+                    {final_answer}
+             </div>
+            """
+        
+        return HTMLResponse(content=message_html, status_code=200)

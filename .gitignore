@@ -12,4 +12,6 @@ ollama
 /APP/.ipynb_checkpoints/
 /APP/.env
 /APP/exemples/
+/APP/figures/
+
 docs

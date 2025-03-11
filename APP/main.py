@@ -85,9 +85,8 @@ class FastApp :
         """
         
         json_data= self.agent.answer_question(question,request,self.session_id)
-        return self.templates.TemplateResponse(
-        "messages.html",json_data
-        ) 
+        return json_data
+    
     def shutdown_event(self):
         self.agent.CassandraInterface.session.shutdown()
         self.agent=None
@@ -105,4 +104,13 @@ if __name__ == "__main__":
 # https://github.com/michelderu/chat-with-your-data-in-cassandra/blob/main/docker-compose.yml
 #https://medium.com/@o39joey/advanced-rag-with-python-langchain-8c3528ed9ff5
 #https://python.langchain.com/api_reference/langchain/chains/langchain.chains.conversational_retrieval.base.ConversationalRetrievalChain.html
-#https://github.com/langchain-ai/langchain/discussions/9158
+#https://github.com/langchain-ai/langchain/discussions/9158*
+
+
+
+
+
+
+
+
+

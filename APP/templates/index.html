@@ -6,6 +6,8 @@
   <title>Chat with AI</title>
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   
 </head>
 <body>
@@ -39,6 +41,17 @@
         const button = document.querySelector('button');
         button.disabled = !this.value;
       });
+      document.body.addEventListener("htmx:afterSwap", function() {
+  const answer = document.getElementById('answer');
+      if (answer) {
+        try {
+          const formattedResponse = marked.parse(answer.textContent);
+          answer.innerHTML = formattedResponse;
+        } catch (error) {
+          console.error("Error parsing markdown:", error);
+        }
+      }
+    });
     
   
     
