@@ -11,6 +11,7 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
+import threading
 from fastapi.responses import HTMLResponse
 import uuid
 from langchain.retrievers.multi_query import MultiQueryRetriever
@@ -398,6 +399,7 @@ class AgentInterface:
    
     def load_pdf_documents_fast(self,bool=True):
         import pandas as pd 
+        from concurrent.futures import ThreadPoolExecutor
         """
         Loads and processes PDF documents from a specified directory with semantic chunking.
         This method reads all PDF files from the UPLOAD_DIR directory, processes them using
@@ -425,26 +427,44 @@ class AgentInterface:
         if bool==True:
             self.UPLOAD_DIR.mkdir(exist_ok=True) 
             docs=[]
-            for file in os.listdir(self.UPLOAD_DIR):
-                if   file.endswith(".pdf")==True and os.path.isfile(self.UPLOAD_DIR / file):
-                    
-                        full_path = self.UPLOAD_DIR/ file
-                        loader = PDFPlumberLoader(full_path)
-                        document = loader.load()
-                        docs.append(document)
-                self.load_csv_to_documents(pd, docs, file)
-            for doc in docs:
-                if doc is not None:
-                    print(doc)
-                    chunks = self.semantic_chunker.split_documents(doc)
-                    summaries_x = chain.batch(chunks, {"max_concurrency": 5})
-                    doc_ids = [str(uuid.uuid4()) for _ in chunks]
-                    summary_docs = [
-                        Document(page_content=s, metadata={"doc_id": doc_ids[i]})
-                        for i, s in enumerate(summaries_x)
-                    ]
-
-                    documents.extend(chunks)  
+            all_files = os.listdir(self.UPLOAD_DIR)
+            threads = []
+            
+            for file in all_files:
+                if file.endswith(".pdf"):
+                    thread = threading.Thread(target=self.process_pdf_file, args=(docs, file))
+                    threads.append(thread)
+                elif file.endswith(".csv"):
+                    thread = threading.Thread(target=self.load_csv_to_documents, args=(pd, docs, file))
+                    threads.append(thread)
+            
+            # Start all threads
+            for thread in threads:
+                thread.start()
+                
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+            def process_document(doc):
+                if doc is None:
+                    return [], [], []
+                
+                print(doc)
+                chunks = self.semantic_chunker.split_documents(doc)
+                summaries_x = chain.batch(chunks, {"max_concurrency": 5})
+                doc_ids = [str(uuid.uuid4()) for _ in chunks]
+                summary_docs = [
+                    Document(page_content=s, metadata={"doc_id": doc_ids[i]})
+                    for i, s in enumerate(summaries_x)
+                ]
+                return chunks, summary_docs, doc_ids
+            
+            # Process documents concurrently
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(process_document, doc) for doc in docs if doc is not None]
+                for future in futures:
+                    chunks, summary_docs, doc_ids = future.result()
+                    documents.extend(chunks)
                     summaries.extend(summary_docs)
                     docs_ids.extend(doc_ids)
             
@@ -452,6 +472,14 @@ class AgentInterface:
                 
         return documents, summaries,docs_ids
 
+    def process_pdf_file(self, docs, file):
+        if   file.endswith(".pdf")==True and os.path.isfile(self.UPLOAD_DIR / file):
+                full_path = self.UPLOAD_DIR/ file
+                loader = PDFPlumberLoader(full_path)
+                document = loader.load()
+                if document is not None:
+                    docs.append(document)
+   
     def load_csv_to_documents(self, pd, docs, file):
         if  file.endswith(".csv") ==False:
             file_completed = os.path.join(self.UPLOAD_DIR, file)
@@ -630,7 +658,9 @@ class AgentInterface:
                     <div class="message-icon">
                     <img src="/static/bot.png" alt="bot" class="bot-icon">
                     </div>
+                    <div class="message-content">
                     {final_answer}
+                    </div>
              </div>
             """
         

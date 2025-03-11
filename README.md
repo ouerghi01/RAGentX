@@ -61,6 +61,9 @@ Below are some screenshots of the app:
 
 ### Screenshot 2
 ![App Screenshot 2](two.png)
+### Screenshot 3
+![App Screenshot 3](one3.png)
+We can see how the agent generates responses with a responsive UI, thanks to the prompt engineering implemented with LangChain.
 
 ## License
 MIT License

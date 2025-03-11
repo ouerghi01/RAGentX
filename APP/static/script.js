@@ -216,7 +216,7 @@ if (typeof(Storage) !== "undefined") {
       }
       if(event.detail.elt.closest("#form_send_message")){
         document.getElementById('messages').style.display = 'flex';
-        alert(event.detail.xhr.response);
+        
         console.log("Message request completed!");
       }
   });
