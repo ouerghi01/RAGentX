@@ -1,14 +1,23 @@
 import uvicorn
 from services.agent_service import AgentInterface
-from fastapi import FastAPI 
-from fastapi import FastAPI,Request,Form
+from dotenv import load_dotenv
+import os
+load_dotenv()  # take environment variables from .env.
+from fastapi import FastAPI,Request,Form 
 from fastapi.templating import Jinja2Templates
-
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import asyncio
+from services.auth_service import AuthService
+from services.cassandra_service import CassandraInterface
+from fastapi import  FastAPI
+
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
+
+
+
 
 class FastApp :
     """FastAPI Application wrapper for RAG-based chatbot implementation.
@@ -31,7 +40,9 @@ class FastApp :
         /send_message/ : Message handling endpoint (POST)
     """
     def __init__(self):
+        self.cassandra_intra=CassandraInterface()
         self.app=FastAPI()
+        self.auth_service=AuthService(self.cassandra_intra)
         self.agent=None
         self.templates = None
         self.origins =  [
@@ -50,6 +61,8 @@ class FastApp :
         self.app.add_event_handler("shutdown", self.shutdown_event)
         self.app.add_api_route("/", self.main_page)
         self.app.add_api_route("/send_message/", self.send_message, methods=["POST"])
+        self.app.add_api_route("/register/", self.auth_service.register_user, methods=["POST"])
+        self.app.add_api_route("/login/", self.auth_service.login_for_access_token, methods=["POST"])
 
     
     def startup_event(self):
@@ -66,8 +79,9 @@ class FastApp :
             None
         """
         print("Starting App ...")
-        self.agent=AgentInterface("assistant")
-        self.session_id=self.agent.CassandraInterface.create_room_session()
+        
+        self.agent=AgentInterface("assistant",self.cassandra_intra)
+        self.session_id=self.cassandra_intra.create_room_session()
         self.templates = Jinja2Templates(directory="templates")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")
     def send_message(self,request:Request,question:str=Form(...)):
@@ -84,8 +98,8 @@ class FastApp :
             response = send_message(request, "What is the weather today?")
         """
         
-        json_data= self.agent.answer_question(question,request,self.session_id)
-        return json_data
+        html_answer= self.agent.answer_question(question,request,self.session_id)
+        return html_answer
     
     def shutdown_event(self):
         self.agent.CassandraInterface.session.shutdown()

@@ -92,7 +92,7 @@ class AgentInterface:
         Requires appropriate environment variables to be set for model names,
         API endpoints, and authentication tokens.
     """
-    def __init__(self,role):
+    def __init__(self,role,cassandra_intra):
         """
         Initialize the AgentService class with various components for document processing and retrieval.
         This service handles document processing, embedding, vector storage, and retrieval operations
@@ -141,7 +141,7 @@ class AgentInterface:
         self.pdfservice=PDFService(self.UPLOAD_DIR)
         Ranker(model_name="ms-marco-MiniLM-L-12-v2")
         compressor = FlashrankRerank(model="ms-marco-MiniLM-L-12-v2", top_n=3)
-        self.CassandraInterface=CassandraInterface()
+        self.CassandraInterface=cassandra_intra
         self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
         
         self.semantic_chunker = SemanticChunker (
@@ -318,27 +318,27 @@ class AgentInterface:
             answer = chain.invoke("What is X?")"""
         
         self.prompt = """
-You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+    You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
 
-### Response Guidelines:
-- Format responses using **HTML** for clear presentation.
-- Use **CSS styles** to enhance readability (e.g., fonts, colors, spacing).
-- Use headings (`<h2>`, `<h3>`), lists (`<ul>`, `<ol>`), and tables (`<table>`) where appropriate.
-- Ensure code snippets are wrapped in `<pre><code>` blocks for proper formatting.
-- If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
+    ### Response Guidelines:
+    - Format responses using **HTML** for clear presentation.
+    - Use **CSS styles** to enhance readability (e.g., fonts, colors, spacing).
+    - Use headings (`<h2>`, `<h3>`), lists (`<ul>`, `<ol>`), and tables (`<table>`) where appropriate.
+    - Ensure code snippets are wrapped in `<pre><code>` blocks for proper formatting.
+    - If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
 
-#### Role: Mohamed Aziz Werghi 🤖  
-**Context:**  
-{context}  
+    #### Role: Mohamed Aziz Werghi 🤖  
+    **Context:**  
+    {context}  
 
-**Chat History:**  
-{chat_history}  
+    **Chat History:**  
+    {chat_history}  
 
-**Question:**  
-{question}  
+    **Question:**  
+    {question}  
 
-**Your answer (in well-structured HTML & CSS format):**
-"""
+    **Your answer (in well-structured HTML & CSS format):**
+    """
 
         
         chain = (
@@ -732,7 +732,6 @@ You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. 
         """
         self.logger.info(f"Received question: {question}")
         exist_answer=self.get_cached_answer(question)
-        Grounded=False
         if exist_answer is not None:
             return self.generate_message_html(question, exist_answer)
         else:
@@ -753,17 +752,15 @@ You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. 
                 })
                 if gc_result.lower().startswith("grounded"):
                     print("Grounded")
-                    Grounded=True
                 else:
                     print("Not Grounded")
-                    Grounded=False
             except Exception as e:
                 self.logger.error(f"Error while answering question: {e}")
                 self.chain=self.retrieval_chain(self.chat_up)
                 final_answer = self.chain.invoke(question_enhanced)
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)
-            #self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
+            self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
             
             self.CassandraInterface.insert_answer(session_id,question,final_answer)
             return self.generate_message_html(question, final_answer)

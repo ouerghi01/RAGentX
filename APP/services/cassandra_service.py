@@ -72,6 +72,16 @@ class CassandraInterface:
             vector BLOB  -- Store the embeddings (vector representation of the document)
         );
         """
+        create_user_table = f"""
+        CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.users_new (
+            user_id UUID PRIMARY KEY,
+            username TEXT,
+            email TEXT,
+            his_job TEXT,
+            password TEXT
+        );
+        """
+        self.session.execute(create_user_table)
         create_session_table = f"""
 
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.session_table (
@@ -100,6 +110,18 @@ class CassandraInterface:
         """
         self.session.execute(create_table)
         self.session.execute(response_table)
+    def insert_user(self,user_name,user_email,his_job,user_password):
+        user_id = uuid.uuid4()
+        self.session.execute(
+            f"INSERT INTO {self.KEYSPACE}.users_new (user_id, username, email,his_job,password) VALUES (%s, %s, %s, %s, %s)",
+            (user_id, user_name, user_email,his_job,user_password)
+        )
+        return user_id
+    def find_user(self,username):
+        find_user_query = f"SELECT * FROM {self.KEYSPACE}.users_new WHERE username=%s ALLOW FILTERING"
+        result_set = self.session.execute(find_user_query, (username,))
+        user_row = result_set.one() if result_set else None
+        return user_row
     def clear_tables(self):
         """
         Clears all tables in the Cassandra database by executing TRUNCATE commands.

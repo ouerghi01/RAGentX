@@ -13,12 +13,13 @@ body {
     font-size: 14px;
     color: #007bff;
 }
+
 .htmx-request .loading {
     display: block;
 }
   .messenger {
+    position: absolute;
     width: 100%;
-    max-width: 800px;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -205,4 +206,4 @@ body {
     font-size: 12px;
     color: #aaa;
   }
-  
+ 
