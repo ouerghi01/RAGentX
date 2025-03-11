@@ -12,5 +12,6 @@ ollama
 /APP/.ipynb_checkpoints/
 /APP/.env
 /APP/exemples/
+/APP/services/__pycache__/
 
 docs
