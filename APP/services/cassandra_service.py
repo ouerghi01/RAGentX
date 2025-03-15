@@ -29,7 +29,7 @@ class CassandraInterface:
     def __init__(self):
         self.CASSANDRA_PORT=os.getenv("CASSANDRA_PORT")
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
-        self.KEYSPACE=os.getenv("KEYSPACE")
+        self.KEYSPACE:str=os.getenv("KEYSPACE")
         self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
 
         
@@ -64,6 +64,9 @@ class CassandraInterface:
         WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': 3}};
         """
         self.session.execute(create_key_space)
+        self.create_database_tables()
+
+    def create_database_tables(self):
         create_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.vectores (
             partition_id UUID PRIMARY KEY,
@@ -83,7 +86,6 @@ class CassandraInterface:
         """
         self.session.execute(create_user_table)
         create_session_table = f"""
-
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.session_table (
             session_id UUID PRIMARY KEY,
         );
@@ -105,7 +107,6 @@ class CassandraInterface:
             answer TEXT,
             timestamp TIMESTAMP,
             evaluation BOOLEAN
-            
         );
         """
         self.session.execute(create_table)
@@ -122,6 +123,19 @@ class CassandraInterface:
         result_set = self.session.execute(find_user_query, (username,))
         user_row = result_set.one() if result_set else None
         return user_row
+    def execute_statement(self,statement: str):
+    # This is a simple wrapper around executing CQL statements in our
+    # Cassandra cluster, and either raising an error or returning the results
+        try:
+            rows = self.session.execute(statement)
+            
+            return rows
+        except Exception as e:
+            print(f"Query Failed: {statement} error {e}" )
+            return {
+                "error": str(e),
+                "statement":statement
+            }
     def clear_tables(self):
         """
         Clears all tables in the Cassandra database by executing TRUNCATE commands.

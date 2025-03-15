@@ -4,12 +4,13 @@ import os
 import jwt
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Annotated
+from fastapi import Request, Form
 
 load_dotenv()  # take environment variables from .env.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -46,7 +47,7 @@ class AuthService:
 
     def get_password_hash(self,password):
         return self.pwd_context.hash(password)
-    def register_user(self, username: str, email: str, password: str, his_job: str):
+    async def register_user(self, request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...), his_job: str = Form(...)):
             hashed_password = self.get_password_hash(password)
             user = User(username=username, email=email, his_job=his_job, hashed_password=hashed_password)
             self.cassandra_intra.insert_user(user.username, user.email, user.his_job, user.hashed_password)

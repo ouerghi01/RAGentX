@@ -1,7 +1,8 @@
 import uvicorn
 from services.agent_service import AgentInterface
 from dotenv import load_dotenv
-import os
+
+from services.Crawler import main_crawler
 load_dotenv()  # take environment variables from .env.
 from fastapi import FastAPI,Request,Form 
 from fastapi.templating import Jinja2Templates
@@ -14,10 +15,6 @@ from fastapi import  FastAPI
 import random
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
-
-
-
-
 
 class FastApp :
     """FastAPI Application wrapper for RAG-based chatbot implementation.
@@ -78,7 +75,8 @@ class FastApp :
         return {
             "message":"File uploaded successfully"
         }
-    def startup_event(self):
+    
+    async def startup_event(self):
         """
         Initializes the application by setting up necessary components.
 
@@ -92,8 +90,10 @@ class FastApp :
             None
         """
         print("Starting App ...")
-        
-        self.agent=AgentInterface("assistant",self.cassandra_intra)
+        #contents,urls = await main_crawler()
+        self.agent=AgentInterface("assistant",self.cassandra_intra,name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads")
+        self.agent.compression_retriever=await self.agent.setup_ensemble_retrievers()
+        self.agent.chain=self.agent.retrieval_chain()
         self.session_id=self.cassandra_intra.create_room_session()
         self.templates = Jinja2Templates(directory="templates")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")

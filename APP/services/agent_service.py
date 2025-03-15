@@ -3,61 +3,48 @@ from langchain.retrievers import ContextualCompressionRetriever
 import logging
 import time
 from collections import OrderedDict
-from langchain.retrievers.document_compressors import FlashrankRerank
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain_community.document_compressors import FlashrankRerank
+from langchain_core.callbacks import CallbackManager
+from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
     HarmBlockThreshold,
     HarmCategory,
 )
-import threading
 from fastapi.responses import HTMLResponse
 import uuid
 from langchain.retrievers.multi_query import MultiQueryRetriever
-
 from langchain.storage import InMemoryStore
-from langchain.text_splitter import TokenTextSplitter
+from langchain_text_splitters import TokenTextSplitter
 from langchain.retrievers import ParentDocumentRetriever
 from langchain_astradb import AstraDBVectorStore
-from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-
-from langchain_core.documents import Document
 from langchain.memory import ConversationSummaryMemory
 from dotenv import load_dotenv
 import os 
 from pathlib import Path
-from langchain.retrievers import BM25Retriever, EnsembleRetriever
+from langchain.retrievers import  EnsembleRetriever
+
+from langchain_community.retrievers import BM25Retriever
 
 
-from langchain_community.document_loaders import (
-    unstructured,
-    
-)
+from load_data import DataLoader
 
-
-from services.pdf_service import PDFService
-from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
-from langchain_community.document_loaders import PDFPlumberLoader  
 from langchain_community.embeddings import HuggingFaceEmbeddings  
 from langchain_community.vectorstores.cassandra import Cassandra
 from langchain_community.llms import Ollama
-from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain_experimental.text_splitter import SemanticChunker
-from services.cassandra_service import CassandraInterface
+from cassandra_service import CassandraInterface
 from flashrank import Ranker 
-
+import json
 from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
-
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -87,7 +74,8 @@ class AgentInterface:
         Requires appropriate environment variables to be set for model names,
         API endpoints, and authentication tokens.
     """
-    def __init__(self,role,cassandra_intra):
+    def __init__(self,role,cassandra_intra:CassandraInterface,name_dir
+        ):
         """
         Initialize the AgentService class with various components for document processing and retrieval.
         This service handles document processing, embedding, vector storage, and retrieval operations
@@ -121,29 +109,34 @@ class AgentInterface:
         Raises:
             Exception: If AstraDBVectorStore initialization fails, falls back to Cassandra
         """
-        
+
         self.role=role
         self.setup_logging()
         self.prompt=None
         self.cache = OrderedDict()
         self.cache_ttl = 300
-        self.UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR"))  
+        self.name_dir=name_dir
+        self.UPLOAD_DIR = Path(self.name_dir) 
+        self.load_data=DataLoader(upload_dir=self.UPLOAD_DIR) 
+        
         self.MODEL_NAME_llm=os.getenv("MODEL_NAME")
         self.BASE_URL_OLLAMA=os.getenv("OLLAMA_BASE_URL")
         self.MODEL_NAME_EMBEDDING=os.getenv("MODEL_NAME_EMBEDDING")
         self.MODEL_KWARGS_EMBEDDING={"device": "cpu"}
         self.ENCODE_KWARGS={"normalize_embeddings": True}
-        self.pdfservice=PDFService(self.UPLOAD_DIR)
-        Ranker(model_name="ms-marco-MiniLM-L-12-v2")
-        compressor = FlashrankRerank(model="ms-marco-MiniLM-L-12-v2", top_n=3)
-        self.CassandraInterface=cassandra_intra
-        self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
-        
+        # Create a single Ranker instance properly
+        ranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2")
+        self.compressor = FlashrankRerank(
+            client=ranker
+        )
+        self.cassandraInterface=cassandra_intra
+        #self.cassandraInterface.clear_tables()
+        self.hf_embedding = None
         self.semantic_chunker = SemanticChunker (
         self.hf_embedding, 
         )
         self.setup_vector_store()
-            
+
         self.llm_gemini = ChatGoogleGenerativeAI(
             model="gemini-1.5-pro",
             google_api_key=os.getenv("LANGSMITH_API_KEY"),
@@ -158,19 +151,16 @@ class AgentInterface:
         self.chat_up=ChatUpstage()
 
         self.groundedness_check = UpstageGroundednessCheck()
-        
-        self.documents,self.summaries,self.docs_ids=self.load_pdf_documents_fast()
+
+        self.documents,self.docs_ids=  self.load_data.load_documents()
         self.parent_store = InMemoryStore()
 
-        self.compression_retriever= self.setup_ensemble_retrievers(compressor)
-       
-     
+        self.compression_retriever=  None
         self.combine_documents_chain=None
-
         self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
         self.memory = ConversationSummaryMemory(llm=self.llm_gemini,memory_key="chat_history",return_messages=True)
-        
-        self.chain=self.retrieval_chain(self.llm_gemini)
+
+        self.chain=None
     def setup_logging(self):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -183,8 +173,50 @@ class AgentInterface:
         keys_to_delete = [key for key, (_, timestamp) in self.cache.items() if current_time - timestamp >= self.cache_ttl]
         for key in keys_to_delete:
             del self.cache[key]
-    
-    def setup_ensemble_retrievers(self, compressor):
+    def evaluate(self, html_output):
+        prompt = """
+        Evaluate the following HTML structure for correctness and completeness. 
+        Consider the following criteria:
+        1. Valid HTML syntax
+        2. Presence of essential elements (html, head, body)
+        3. Proper nesting of elements
+        4. Use of semantic HTML tags where appropriate
+
+        HTML to evaluate:
+        {html_output}
+
+        Provide a JSON response with the following structure:
+
+        
+            "is_valid": true/false,
+            "issues": ["list", "of", "identified", "issues"],
+            "suggestions": ["list", "of", "recommended", "improvements"],
+            "improved_html": "new, improved HTML code with fixes"
+        
+
+        In your response:
+        - "is_valid" should be a boolean indicating whether the HTML is correct or not.
+        - "issues" should be an array listing any errors, missing elements, or misused tags.
+        - "suggestions" should be an array offering practical suggestions for improvement or better practices.
+        - "improved_html" should be the refined version of the HTML with improvements based on the identified issues and suggestions.
+
+        Please ensure that the improved HTML reflects best practices and correct syntax.
+        """
+
+
+        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output"])
+        llm_chain = LLMChain(
+            llm=self.llm_gemini, 
+            prompt=QA_CHAIN_PROMPT, 
+            callbacks=None, 
+            verbose=True
+        )
+        evaluation = llm_chain.invoke({"html_output": html_output})
+        text=evaluation['text'].replace("json","")
+        text=text.replace("```","")
+        reponse= json.loads(text) if evaluation else {"is_valid": False, "issues": ["Evaluation failed"], "suggestions": []}
+        return reponse
+    async def setup_ensemble_retrievers(self):
         """
         Sets up an ensemble of retrievers for enhanced document retrieval.
         This method configures multiple retrievers and combines them using ensemble and compression techniques:
@@ -206,44 +238,36 @@ class AgentInterface:
             ensemble_retriever: Final ensemble combining BM25 and multi-query retrievers
             compression_retriever: Compressed version of the final ensemble retriever
         """
+        
         bm25_retriever=BM25Retriever.from_documents(self.documents)
         bm25_retriever.k=2 
         parent_retriever=self.configure_parent_child_splitters()
-        
-        self.add_documents_to_parent_retriever(parent_retriever)
-
-
+        await ( self.add_documents_to_parent_retriever(parent_retriever))
         retrieval=self.astra_db_store.as_retriever(
             search_type="mmr",
             search_kwargs={'k': 5, 'fetch_k': 50}
         )
+        
         ensemble_retriever_new = EnsembleRetriever(retrievers=[parent_retriever, retrieval],
                                         weights=[0.4, 0.6])
         multi_retriever = MultiQueryRetriever.from_llm(
             ensemble_retriever_new
-         , llm=self.chat_up
+         , llm=self.llm
         )
-        ensemble_retriever = EnsembleRetriever(retrievers=[bm25_retriever, multi_retriever],
-                                        weights=[0.4, 0.6])
+        ensemble_retriever = EnsembleRetriever(retrievers=[ensemble_retriever_new, multi_retriever],
+                                        weights=[0.5, 0.6])
         compression_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor,
+        base_compressor=self.compressor,
         base_retriever=ensemble_retriever
         )
         return compression_retriever
 
-    def add_documents_to_parent_retriever(self, parent_retriever):
-        parent_retriever.vectorstore.aadd_documents(
-        documents=self.documents,
-        )
-        parent_retriever.vectorstore.aadd_documents(
-        documents=self.summaries,
-        )
-        
+    async def add_documents_to_parent_retriever(self, parent_retriever:ParentDocumentRetriever):
         parent_retriever.docstore.mset(list(zip(self.docs_ids, self.documents)))
         for i,doc in enumerate(self.documents):
             doc.metadata["doc_id"] =self.docs_ids[i]
-        
-        parent_retriever.vectorstore.aadd_documents(
+
+        await parent_retriever.vectorstore.aadd_documents(
         documents=self.documents,
         )
     def get_cached_answer(self, question):
@@ -277,25 +301,26 @@ class AgentInterface:
             None
         """
         try:
+            self.hf_embedding=HuggingFaceEmbeddings(
+                model_name="all-MiniLM-L6-v2",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
+            #self.CassandraInterface.clear_tables()
+            self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.cassandraInterface.session, keyspace=self.cassandraInterface.KEYSPACE, table_name="vectores_new")
+
+            #self.astra_db_store.clear()
+        except Exception as e:
             self.astra_db_store = AstraDBVectorStore(
             collection_name="langchain_unstructured",
             embedding=self.hf_embedding,
             token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
             api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
             )
-            self.astra_db_store.clear()
-        except Exception as e:
             print(f"Error initializing AstraDBVectorStore: {e}")
-            self.hf_embedding=HuggingFaceEmbeddings(
-                model_name="all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
-            self.CassandraInterface.clear_tables()
-            self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.session, keyspace=CassandraInterface().KEYSPACE, table_name="vectores_new")
-        
-
-    def retrieval_chain(self, llm=None):
+           
+    
+    def retrieval_chain(self):
         """Creates and returns a retrieval chain for question answering.
 
         The chain combines a compression retriever, prompt template, and Gemini LLM model to:
@@ -311,9 +336,9 @@ class AgentInterface:
         Example:
             chain = agent.retrieval_chain()
             answer = chain.invoke("What is X?")"""
-        
+
         self.prompt = """
-    You are Mohamed Aziz Werghi, a skilled full-stack developer and MLOps engineer. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+    You are Mohamed Aziz Werghi, a skilled In cassandra database. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
 
     ### Response Guidelines:
     - Format responses using **HTML** for clear presentation.
@@ -335,7 +360,7 @@ class AgentInterface:
     **Your answer (in well-structured HTML & CSS format):**
     """
 
-        
+
         chain = (
             {
                 "context": self.compression_retriever,
@@ -372,217 +397,9 @@ class AgentInterface:
         parent_splitter=parent_splitter,
         )
         return parent_retriever
-     
-    def answer_rewriting(self,context, query: str) -> str:
-        query_rewrite_prompt = """
-            You are a helpful assistant that takes a user's question and 
-            provided context to generate a clear and direct answer. 
-            Please provide a concise response based on the context without adding any extra comments.
-            provide a short and clear answer based on the context provided.
 
-            Context: {context}
 
-            Question: {query}
-
-            Answer:
-        """
-
-        QA_CHAIN_PROMPT = PromptTemplate(template=query_rewrite_prompt, input_variables=["query"])
-        llm_chain = LLMChain(
-            llm=self.llm, 
-            prompt=QA_CHAIN_PROMPT, 
-            callbacks=None, 
-            verbose=True
-        )
-        retrieval_query = llm_chain.invoke({"query": query, "context": context})
-        return retrieval_query['text']
-   
-    def load_pdf_documents_fast(self,bool=True):
-        import pandas as pd 
-        from concurrent.futures import ThreadPoolExecutor
-        """
-        Loads and processes PDF documents from a specified directory with semantic chunking.
-        This method reads all PDF files from the UPLOAD_DIR directory, processes them using
-        PDFPlumberLoader, and splits the documents into semantic chunks.
-        Parameters:
-            bool (bool): Flag to control document loading. If True, loads and processes documents.
-                        Defaults to True.
-        Returns:
-            list: A list of processed document chunks. Returns empty list if bool is False.
-        Note:
-            - Creates UPLOAD_DIR if it doesn't exist
-            - Only processes files with '.pdf' extension
-            - Applies semantic chunking to each loaded document
-            - Skips any None documents during processing
-        """
-        documents = []
-        summaries = []
-        docs_ids=[]
-        chain = (
-        {"doc": lambda x: x.page_content}
-        | ChatPromptTemplate.from_template("Summarize the following document:\n\n{doc}")
-        | self.chat_up
-        | StrOutputParser()
-        )
-        if bool==True:
-            self.UPLOAD_DIR.mkdir(exist_ok=True) 
-            docs=[]
-            all_files = os.listdir(self.UPLOAD_DIR)
-            threads = []
-            
-            for file in all_files:
-                if file.endswith(".pdf"):
-                    thread = threading.Thread(target=self.process_pdf_file, args=(docs, file))
-                    threads.append(thread)
-                elif file.endswith(".csv"):
-                    thread = threading.Thread(target=self.load_csv_to_documents, args=(pd, docs, file))
-                    threads.append(thread)
-            
-            # Start all threads
-            for thread in threads:
-                thread.start()
-                
-            # Wait for all threads to complete
-            for thread in threads:
-                thread.join()
-            def process_document(doc):
-                if doc is None:
-                    return [], [], []
-                
-                print(doc)
-                chunks = self.semantic_chunker.split_documents(doc)
-                summaries_x = chain.batch(chunks, {"max_concurrency": 5})
-                doc_ids = [str(uuid.uuid4()) for _ in chunks]
-                summary_docs = [
-                    Document(page_content=s, metadata={"doc_id": doc_ids[i]})
-                    for i, s in enumerate(summaries_x)
-                ]
-                return chunks, summary_docs, doc_ids
-            
-            # Process documents concurrently
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(process_document, doc) for doc in docs if doc is not None]
-                for future in futures:
-                    chunks, summary_docs, doc_ids = future.result()
-                    documents.extend(chunks)
-                    summaries.extend(summary_docs)
-                    docs_ids.extend(doc_ids)
-            
-        #self.load_documents_from_cassandra(documents)
-                
-        return documents, summaries,docs_ids
-
-    def process_pdf_file(self, docs, file):
-        if   file.endswith(".pdf")==True and os.path.isfile(self.UPLOAD_DIR / file):
-                full_path = self.UPLOAD_DIR/ file
-                loader = PDFPlumberLoader(full_path)
-                document = loader.load()
-                if document is not None:
-                    docs.append(document)
-   
-    def load_csv_to_documents(self, pd, docs, file):
-        if  file.endswith(".csv") ==False:
-            file_completed = os.path.join(self.UPLOAD_DIR, file)
-            df = pd.read_csv(file_completed)
-
-            df['meta'] = df.apply(lambda row: {"source": file_completed}, axis=1)
-            records = df.to_dict('records')
-            columns = df.columns
-            ds=[]
-            for record in records:
-                full_text = "\n".join([f"{col}: {record[col]}" for col in columns])
-
-                meta = record.get('meta', {})  # Ensure metadata is retrieved safely
-                doc = Document(page_content=full_text, metadata=meta)
-
-                ds.append(doc) 
-            docs.append(ds)
-    def load_pdf_v2(self):
-        documents = []
-        for filename in os.listdir(self.UPLOAD_DIR):
-            file_path = self.UPLOAD_DIR / filename
-            if not file_path.is_file():
-                continue
-            elements = unstructured.get_elements_from_api(
-                file_path=file_path,
-                api_key=os.getenv("UNSTRUCTURED_API_KEY"),
-                api_url=os.getenv("UNSTRUCTURED_API_URL"),
-                strategy="fast", # default "auto"
-                pdf_infer_table_structure=True,
-            )
-
-            documents.extend(self.process_elements_to_documents(elements))
-        return documents
-
-    def process_elements_to_documents(self,elements):
-        documents = []
-        current_doc = None
-        for el in elements:
-            if el.category in ["Header", "Footer"]:
-                continue # skip these
-            if el.category == "Title":
-                if current_doc is not None:
-                    documents.append(current_doc)
-                current_doc = None
-            if not current_doc:
-                current_doc = Document(page_content="", metadata=el.metadata.to_dict())
-            current_doc.page_content += el.metadata.text_as_html if el.category == "Table" else el.text
-            if el.category == "Table":
-                if current_doc is not None:
-                    documents.append(current_doc)
-                current_doc = None
-        return documents
-    def load_pdf_documents_with_ocr(self, bool=True):
-        """
-        Load PDF documents and convert them to text format, including both regular text and text extracted from images.
-        This method processes PDF documents stored in the upload directory, combining the regular text content
-        with text extracted from images found in the PDFs. Each document is converted into a Document object
-        with associated metadata.
-        Args:
-            bool (bool, optional): Flag to control whether documents should be loaded. Defaults to True.
-        Returns:
-            list: A list of Document objects, where each Document contains:
-                - page_content: Combined text from both regular content and image-extracted text
-                - metadata: Associated metadata dictionary for the document
-        Note:
-            - Creates upload directory if it doesn't exist
-            - Uses PDFService to extract data from PDF files
-            - Combines regular text and image-extracted text with newline separators
-            - Validates metadata is in dictionary format
-        """
-        documents = []
-        if bool==True:
-            self.UPLOAD_DIR.mkdir(exist_ok=True) 
-            records=self.pdfservice.extract_data_from_pdf_directory()
-            docs=[]
-            for record in records:
-                
-                full_text=record['text'] + "\n" +  "\n" + record['images_to_text']
-                meta = record['meta'] if isinstance(record['meta'], dict) else {}
-                doc = Document(page_content=full_text, metadata=meta)
-                docs.append(doc)
-
-            documents.extend(docs)
-            
-        #self.load_documents_from_cassandra(documents)
-                
-        return documents
     
-    def load_documents_from_cassandra(self, documents):
-        schemas = self.CassandraInterface.retrieve_column_descriptions()
-            
-        for table_name,desc in schemas.items():
-            loader=CassandraLoader(
-                table=table_name,
-                session=self.CassandraInterface.session,
-                keyspace=self.CassandraInterface.KEYSPACE,
-                )
-            docs=loader.load()
-            if table_name!="vectores":
-                    for doc in docs:
-                        if doc is not None:
-                            doc.metadata['source'] = f'Description:{desc}.{table_name}'
-            documents.extend(docs)
     def answer_question(self,question:str,request,session_id):
         """
         Process a user question and return an answer using either cached responses or generating a new one.
@@ -615,7 +432,7 @@ class AgentInterface:
         else:
             question_enhanced= question 
             final_answer=None
-            
+
             try:
                 context=self.compression_retriever.invoke(question_enhanced)
                 context_memory= self.memory.load_memory_variables({}).get("chat_history", [])
@@ -623,6 +440,8 @@ class AgentInterface:
                     context_memory = "\n".join([msg.content for msg in context_memory])
                     context = f"{context}\n{context_memory}"
                 final_answer = self.chain.invoke(question_enhanced)
+                refined_answer = self.evaluate(final_answer)
+                final_answer=refined_answer["improved_html"]
                 self.logger.info(f"Answer provided: {final_answer}")
                 gc_result=self.groundedness_check.invoke({
                 "context": context,
@@ -639,8 +458,8 @@ class AgentInterface:
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
-            
-            self.CassandraInterface.insert_answer(session_id,question,final_answer)
+
+            self.cassandraInterface.insert_answer(session_id,question,final_answer)
             return self.generate_message_html(question, final_answer)
 
     def generate_message_html(self, question, final_answer):
@@ -663,5 +482,6 @@ class AgentInterface:
                     </div>
              </div>
             """
-        
+
         return HTMLResponse(content=message_html, status_code=200)
+#https://medium.com/@irmjoshy/multi-agent-models-for-webpage-development-leveraging-ai-for-code-generation-and-verification-52cb60cec9eb

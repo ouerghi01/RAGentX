@@ -13,7 +13,7 @@
 <body>
   <div class="Nav">
     <h1
-      style=" font-size: 1.2rem;align-items:flex-start; ">
+      style=" position: relative; bottom: 5px; left: 0; width: fit-content; font-size: 1.0rem;align-items:flex-start; ">
       <a href="/" 
       style="list-style: none; text-decoration: none; color: white; padding: 10px; margin-left: 10px; "
       >Chat with AI</a>
@@ -47,12 +47,20 @@
     id="uploadpdf" 
     
     >
+   
+
+    </div>
+    <div
+    id="questions"
+    style="display: flex; flex-direction: column;"
+    >
+    
 
     </div>
 </div>
 
 
-  <div  id="messanger" style="display: none;" class="messenger">
+  <div  id="messanger" style="display: none; width: 800px;" class="messenger">
     <header>
       <div class="logo">
         <img src="/static/bot.png" alt="bot">
@@ -83,15 +91,7 @@
         <div class="loading" style="display: none;"> ⏳ Waiting for response... </div>
       </form>
     </footer>
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const input = document.getElementById('input');
-        input.addEventListener('input', () => {
-          const button = input.nextElementSibling;
-          button.disabled = !input.value;
-        });
-      });
-    </script>
+  
     
    
   </div>

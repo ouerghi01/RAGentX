@@ -1,6 +1,64 @@
 
 
-
+function tryFollowingQuestion() {
+    const questions = document.getElementById('questions');
+    questions.style.display = "flex";
+    questions.innerHTML = ""; // Clear previous content
+    
+    const questionsExp = [
+        "What is the main idea of the text?",
+        "What are the key points?",
+        "What is the author's argument?",
+       
+    ];
+    
+    const title = document.createElement('h4');
+    title.textContent = "Try asking these questions:";
+    title.style.color = "white";
+    title.style.marginBottom = "10px";
+    title.style.textAlign = "center";
+    questions.appendChild(title);
+    
+    for (let i = 0; i < questionsExp.length; i++) {
+        const question = document.createElement('div');
+        question.classList.add('question');
+        question.textContent = questionsExp[i];
+        
+        // Style the question elements
+        question.style.padding = "8px 12px";
+        question.style.margin = "5px 0";
+        question.style.backgroundColor = "#2e3642";
+        question.style.color = "#e6e6e6";
+        question.style.borderRadius = "5px";
+        question.style.cursor = "pointer";
+        question.style.transition = "all 0.3s ease";
+        question.style.border = "1px solid #3e4758";
+        
+        // Add hover effects
+        question.onmouseover = function() {
+            this.style.backgroundColor = "#3e4758";
+            this.style.transform = "translateY(-2px)";
+        };
+        question.onmouseout = function() {
+            this.style.backgroundColor = "#2e3642";
+            this.style.transform = "translateY(0)";
+        };
+        
+        // Add click functionality to use the question
+        question.onclick = function() {
+            const input = document.getElementById('input');
+            if (input) {
+                input.value = this.textContent;
+                input.focus();
+                // Enable the send button if it exists
+                const button = input.nextElementSibling;
+                if (button) button.disabled = false;
+            }
+        };
+        
+        questions.appendChild(question);
+    }
+}
 function showUIUploadPDF() {
   const uploadpdf = document.getElementById('uploadpdf');
   uploadpdf.innerHTML = ""; // Clear previous content
@@ -156,6 +214,8 @@ function showLoggedInState(username) {
     document.getElementById('register-tab').style.display = 'block';
     document.getElementById('login').style.display = 'block';
     document.getElementById('logout-tab').style.display = 'none';
+    document.getElementById('uploadpdf').style.display='none';
+    document.getElementById('questions').style.display='none';
     div_new.remove();
     button_logout.remove();
   };
@@ -176,6 +236,12 @@ if (typeof(Storage) !== "undefined") {
       const username= localStorage.getItem('username');
       showLoggedInState(username);
       showUIUploadPDF();
+      tryFollowingQuestion();
+    }else{
+        document.getElementById('questions').style.display='none';
+        document.getElementById('uploadpdf').style.display='none';
+        document.getElementById('messanger').style.display = 'none';
+        document.getElementById('logout-tab').style.display = 'none';
     }
   }   
   function switchTab(tab) {
@@ -195,18 +261,29 @@ if (typeof(Storage) !== "undefined") {
           
       }
     }
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('input');
+        input.addEventListener('input', () => {
+          const button = input.nextElementSibling;
+          button.disabled = !input.value;
+        });
+      });
   document.addEventListener("htmx:afterRequest", function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
         const response =JSON.parse( event.detail.xhr.response)
+        
           const username= response.the_user;
-          console.log("Login request completed!");
+          
           showLoggedInState(username);
         
           localStorage.setItem('jwt', response.access_token);
           localStorage.setItem('username', username);
           //alert("Login Successful!"); // Show success message
+          document.getElementById('uploadpdf').style.display='block';
           showUIUploadPDF();
+          tryFollowingQuestion();
+
       }
 
       // Check if the request was for registration
