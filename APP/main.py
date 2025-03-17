@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import asyncio
 from services.auth_service import AuthService
-from services.cassandra_service import CassandraInterface
+from services.cassandra_service import CassandraManager
 from fastapi import  FastAPI
 import random
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
@@ -37,7 +37,7 @@ class FastApp :
         /send_message/ : Message handling endpoint (POST)
     """
     def __init__(self):
-        self.cassandra_intra=CassandraInterface()
+        self.cassandra_intra=CassandraManager()
         self.app=FastAPI()
         self.auth_service=AuthService(self.cassandra_intra)
         self.agent=None

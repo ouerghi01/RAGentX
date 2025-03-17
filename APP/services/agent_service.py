@@ -1,4 +1,3 @@
-from langchain_community.document_loaders import CassandraLoader
 from langchain.retrievers import ContextualCompressionRetriever
 import logging
 import time
@@ -41,7 +40,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 from langchain_experimental.text_splitter import SemanticChunker
-from cassandra_service import CassandraInterface
+from cassandra_service import CassandraManager
 from flashrank import Ranker 
 import json
 from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
@@ -84,7 +83,7 @@ class AgentInterface:
         Requires appropriate environment variables to be set for model names,
         API endpoints, and authentication tokens.
     """
-    def __init__(self,role="assistant",cassandra_intra:CassandraInterface=CassandraInterface(),name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads"
+    def __init__(self,role="assistant",cassandra_intra:CassandraManager=CassandraManager(),name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads"
         ):
         """
         Initialize the AgentService class with various components for document processing and retrieval.

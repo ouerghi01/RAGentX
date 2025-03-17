@@ -1,7 +1,7 @@
 import pdfplumber
 from pdfplumber.utils import extract_text, get_bbox_overlap, obj_to_bbox
-import pytesseract
-import cv2
+import pytesseract # type: ignore
+import cv2 # type: ignore
 import numpy as np 
 import os 
 import pandas as pd

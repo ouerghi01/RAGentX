@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os 
 load_dotenv()  # take environment variables from .env.
 from datetime import datetime
-class CassandraInterface:
+class CassandraManager:
     """A class to handle interactions with a Cassandra database.
     This class provides an interface for managing connections, tables, and operations
     with a Cassandra database, specifically designed for storing and retrieving
@@ -30,9 +30,38 @@ class CassandraInterface:
         self.CASSANDRA_PORT=os.getenv("CASSANDRA_PORT")
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
         self.KEYSPACE:str=os.getenv("KEYSPACE")
-        self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
+        self.session=None
+    def __enter__(self):
+        """
+        Context manager entry point that initializes a Cassandra database session.
 
-        
+        Returns:
+            self: The instance of the class containing a connected Cassandra session.
+
+        Note:
+            This method is automatically called when entering a 'with' statement block.
+            It establishes a connection to Cassandra using the configured port and username.
+        """
+        self.session=self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit method that ensures proper shutdown of the Cassandra session.
+
+        Args:
+            exc_type: The type of the exception that was raised, if any
+            exc_val: The instance of the exception that was raised, if any
+            exc_tb: The traceback of the exception that was raised, if any
+
+        Returns:
+            None
+
+        Note:
+            This method is automatically called when exiting a context manager block.
+            It properly closes the Cassandra session connection.
+        """
+        print(f"{exc_type} -- {exc_val} -- {exc_tb}")
+        self.session.shutdown()  
 
     def initialize_database_session(self,port,host):
         
@@ -65,6 +94,7 @@ class CassandraInterface:
         """
         self.session.execute(create_key_space)
         self.create_database_tables()
+        return self.session
 
     def create_database_tables(self):
         create_table = f"""

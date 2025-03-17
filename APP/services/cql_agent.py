@@ -1,4 +1,4 @@
-from cassandra_service import CassandraInterface
+from cassandra_service import CassandraManager
 from TEXT2CQL_PROMPT import PROMPT_FIX_CQL_V2
 from dotenv import load_dotenv
 import json 
@@ -7,7 +7,7 @@ load_dotenv()  # take environment variables from .env.
 from langchain_core.messages import HumanMessage
 class CQLAGENT:
     def __init__(self):
-        self.cassandra_interface = CassandraInterface()
+        self.cassandra_interface = CassandraManager()
         self.client = genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
         self.schema, self.partition_keys, self.clustering_keys = self.generate_schema_partition_clustering_keys(keyspace="shop")
     def generate_schema_partition_clustering_keys(self,keyspace: str = "default_keyspace") -> tuple[str, str, str]:
