@@ -33,8 +33,7 @@ class DataLoader:
 
     def process_pdf_file(self, docs, file):
         full_path = os.path.join(self.UPLOAD_DIR, file)
-        if file.endswith("data.pdf") or not os.path.isfile(full_path):
-            return
+        
 
         loader = PDFPlumberLoader(full_path)
         document = loader.load()

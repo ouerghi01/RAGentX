@@ -45,6 +45,16 @@ from cassandra_service import CassandraInterface
 from flashrank import Ranker 
 import json
 from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
+from langchain_core.prompts import PromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.output_parsers import JsonOutputParser
+class Answer(BaseModel):
+    reponse: str = Field(description="The answer to the question")
+class Answers(BaseModel):
+    answers: list[Answer] = Field(description="List of answers to the questions")
+    # Set up a parser + inject instructions into the prompt template.
+parser = JsonOutputParser(pydantic_object=Answers)
+
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -74,7 +84,7 @@ class AgentInterface:
         Requires appropriate environment variables to be set for model names,
         API endpoints, and authentication tokens.
     """
-    def __init__(self,role,cassandra_intra:CassandraInterface,name_dir
+    def __init__(self,role="assistant",cassandra_intra:CassandraInterface=CassandraInterface(),name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads"
         ):
         """
         Initialize the AgentService class with various components for document processing and retrieval.
@@ -138,7 +148,7 @@ class AgentInterface:
         self.setup_vector_store()
 
         self.llm_gemini = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro",
+            model="gemini-2.0-flash",
             google_api_key=os.getenv("LANGSMITH_API_KEY"),
             temperature=0,
             max_tokens=None,
@@ -152,7 +162,7 @@ class AgentInterface:
 
         self.groundedness_check = UpstageGroundednessCheck()
 
-        self.documents,self.docs_ids=  self.load_data.load_documents()
+        self.documents,self.docs_ids=  [],[]
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
@@ -239,8 +249,8 @@ class AgentInterface:
             compression_retriever: Compressed version of the final ensemble retriever
         """
         
-        bm25_retriever=BM25Retriever.from_documents(self.documents)
-        bm25_retriever.k=2 
+        #bm25_retriever=BM25Retriever.from_documents(self.documents)
+        #bm25_retriever.k=2 
         parent_retriever=self.configure_parent_child_splitters()
         await ( self.add_documents_to_parent_retriever(parent_retriever))
         retrieval=self.astra_db_store.as_retriever(
@@ -311,6 +321,8 @@ class AgentInterface:
 
             #self.astra_db_store.clear()
         except Exception as e:
+            print(f"Error initializing AstraDBVectorStore: {e}")
+
             self.astra_db_store = AstraDBVectorStore(
             collection_name="langchain_unstructured",
             embedding=self.hf_embedding,
@@ -319,7 +331,42 @@ class AgentInterface:
             )
             print(f"Error initializing AstraDBVectorStore: {e}")
            
-    
+    def simple_chain(self):
+       
+
+        self.prompt = """
+    You are Mohamed Aziz Werghi, a skilled In cassandra database. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+
+    ### Response Guidelines:
+    return list of different  Expected Answers  to this question  in json format 
+
+    #### Role: Mohamed Aziz Werghi 🤖  
+    **Context:**  
+    {context}  
+
+    **Chat History:**  
+    {chat_history}  
+
+    **Question:**  
+    {question}  
+
+    """
+
+
+        chain = (
+            {
+                "context": self.compression_retriever,
+                "chat_history": lambda _: "\n".join(
+                    [msg.content for msg in self.memory.load_memory_variables({}).get("chat_history", [])]
+                ) if self.memory.load_memory_variables({}).get("chat_history") else "",  # Handle empty history
+                "question": RunnablePassthrough()
+            }
+            | PromptTemplate.from_template(self.prompt)
+            | self.llm_gemini
+            | StrOutputParser() | parser
+        )
+
+        return chain
     def retrieval_chain(self):
         """Creates and returns a retrieval chain for question answering.
 

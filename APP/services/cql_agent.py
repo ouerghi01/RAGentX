@@ -1,56 +1,31 @@
 from cassandra_service import CassandraInterface
-import os
-from TEXT2CQL_PROMPT import TEXT2CQL_PROMPT,ANSWER_PROMPT,PROMPT_FIX_CQL_V2,schema_summary_prompt,EXPLAIN_CQL_ERROR
+from TEXT2CQL_PROMPT import PROMPT_FIX_CQL_V2
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
-
+import json 
 from google import genai
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
 load_dotenv()  # take environment variables from .env.
-os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
-from langchain_upstage import ChatUpstage
-
 from langchain_core.messages import HumanMessage
-class Query(BaseModel):
-    query: str = Field(description="The CQL query that needs to be executed")
-    explanation: str = Field(description="A short description of the purpose of the query and how it helps answer the question")
-    result_for_next_query: str =Field(description="Indicates what value from the current query will be used in the next query")
-class AnswerPrompt(BaseModel):
-    queries: list[Query] = Field(description="Contains a list of queries to be executed in sequence")
-parser = JsonOutputParser(pydantic_object=AnswerPrompt)
 class CQLAGENT:
     def __init__(self):
         self.cassandra_interface = CassandraInterface()
-
         self.client = genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
-        
-        
         self.schema, self.partition_keys, self.clustering_keys = self.generate_schema_partition_clustering_keys(keyspace="shop")
     def generate_schema_partition_clustering_keys(self,keyspace: str = "default_keyspace") -> tuple[str, str, str]:
         """Generates a TEXT2CQL_PROMPT compatible schema for a keyspace"""
-        # Get all table names in our keyspace
-        
-        exist = self.is_schema_up_to_date(keyspace)
-
-        if exist:
-            schema_with_summary, partition_keys, clustering_keys = self.fetch_schema_details(keyspace)
-            self.save_schema_to_files(keyspace, schema_with_summary, partition_keys, clustering_keys)
-            return schema_with_summary, partition_keys, clustering_keys
-        else:
-            return self.load_existing_schema()
+        schema_with_summary, partition_keys, clustering_keys = self.fetch_schema_details(keyspace)
+        return schema_with_summary, partition_keys, clustering_keys
 
     def fetch_schema_details(self, keyspace):
         table_names =  self.cassandra_interface.execute_statement(
                 f"SELECT table_name, comment FROM system_schema.tables WHERE keyspace_name = '{keyspace}'"
             )
+        table_names = list(table_names)
         tn_str = ", ".join(["'" + tn.table_name + "'" for tn in table_names])
 
         columns = self.cassandra_interface.execute_statement(
                 f"SELECT * FROM system_schema.columns WHERE table_name IN ({tn_str}) AND keyspace_name = '{keyspace}' ALLOW FILTERING"
             )
-            
+        columns = list(columns)
         schema_details = " | ".join([
                     f"{keyspace}.{table.table_name} '{table.comment}' : " + " , ".join([
                         f"{col.column_name} ({col.type})"
@@ -59,9 +34,7 @@ class CQLAGENT:
                     ])
                     for table in table_names
                 ])
-        
-        schema_summary = self.generate_schema_summary(schema_details)
-        schema_with_summary = f"{schema_details}\n\nSummary: {schema_summary}"
+        schema_with_summary = f"{schema_details}\n"
         partition_keys = " | ".join([
                 f"{keyspace}.{table.table_name} : " + " , ".join([
                     col.column_name for col in columns
@@ -80,134 +53,128 @@ class CQLAGENT:
             ])
         
         return schema_with_summary,partition_keys,clustering_keys
-
-    def generate_schema_summary(self, schema_details):
-        prompt = PromptTemplate(
-                    input_variables=["schema"],
-                    template=schema_summary_prompt,
+    def execute_cql_query_fallback(self, query, resultas):
+            error=resultas["error"]
+            query_incorrect=query
+            schema=self.schema
+            partition_keys=self.partition_keys
+            clustering_keys=self.clustering_keys
+            prompt=PROMPT_FIX_CQL_V2.format(
+                    error_message=error,
+                    schema=schema,
+                    partition_keys=partition_keys,
+                    clustering_keys=clustering_keys,
+                    statement=query_incorrect
                 )
-                
-        llm_chain = LLMChain(llm=self.agent.llm_gemini, prompt=prompt)
-        schema_summary = llm_chain.run({
-                    "schema": schema_details,
-                })
-                
-        return schema_summary
+            client=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
+            completion = client.send_message(prompt).text
+            completion=completion.replace("```","").replace("cql","").strip()
+            query=completion
+            resultas=self.cassandra_interface.execute_statement(completion)
+            return resultas
+    def answer_data_with_cql(self, question):
+        prompt_text="""
+            Convert the given question into multiple CQL (Cassandra Query Language) queries that, when executed sequentially, can retrieve an appropriate answer.
+            1. **Avoid `GROUP BY`, `JOINs`, and `Subqueries`:**
+            - Cassandra does not support these features, so do not use them in any query. 
+            - Do not attempt to simulate `JOIN` operations with subqueries or similar techniques.
+            2- Do no use Complex queries, keep it simple and direct ,and solve the question in subqueries.
+            3- Do not use ORDER BY  in the queries.
+            If the question cannot be answered efficiently due to Cassandra's limitations, such as the lack of joins, subqueries, or aggregations, return a response stating that the data model does not support answering this question in a performant way.
+            **Database Schema Information:**
+            - **Tables and Columns:** schema details will be provided: {schema}
+            - **Partition Keys:** partition key details will be provided: {partition_keys}
+            - **Clustering Keys:** clustering key details will be provided: {clustering_keys}
+            **User Question:**
+            A specific user question will be provided:
+            {question}
+            ---
+            ### **Important Notes on Query Generation:**
+            2. **Simple and Direct Queries:**
+            - Generate simple queries that focus on retrieving a single piece of data at a time. 
+            - Avoid making queries overly complex or long.
+            3. **Retrieve Necessary IDs First:**
+            - Ensure that you first retrieve necessary identifiers like `user_id` or `product_id` using a query before filtering on them in subsequent queries.
+            4. **Use `ALLOW FILTERING` Only When Required:**
+            - If the query requires filtering on non-primary key columns, use `ALLOW FILTERING`, but only if necessary for the query to execute.
+            ---
+            ### **Output Format:**
+            Return a JSON object containing a list of queries under the key `"queries"`. Each query object should include:
+            - `"query"`: The CQL query to be executed. Make sure the query is simple, direct, and efficient.
+            - `"explanation"`: A brief description of what the query does.
+            - `"need_agent"`: A boolean value indicating whether this query requires an external process or agent to use the result of the previous query and generate follow-up queries dynamically.
+            **How the `need_agent` Field Works:**
+            - Set `"need_agent": true` if the query requires a result from a previous query to dynamically generate or fill in values.
+            - Set `"need_agent": false` if the query can be executed independently without needing any additional data.
+            ---
+            If the question cannot be answered efficiently due to Cassandra’s limitations, return a JSON object with an error message explaining the limitations.
+            """
 
-    def save_schema_to_files(self, keyspace, schema_with_summary, partition_keys, clustering_keys):
-        with open("keyspace.txt", "w") as f:
-             f.write(keyspace)
-        # Write the schema to a file because it 's expensive to generate
-
-        with open("schema.txt", "w") as f:
-             f.write(schema_with_summary
-            )
-        with open("partition_keys.txt", "w") as f:
-            f.write(partition_keys)
-        with open("clustering_keys.txt", "w") as f:
-            f.write(clustering_keys)
-
-    def is_schema_up_to_date(self, keyspace):
-        try:
-            with open("keyspace.txt", "r") as f:
-                keyspace_prv = f.read().strip()
-        except FileNotFoundError:
-            keyspace_prv = ""
-        exist=keyspace_prv != keyspace
-        return exist
-
-    def load_existing_schema(self):
-        with open("schema.txt", "r") as f:
-            schema_with_summary = f.read()
-        with open("partition_keys.txt", "r") as f:
-            partition_keys = f.read()
-        with open("clustering_keys.txt", "r") as f:
-            clustering_keys = f.read()
-        return schema_with_summary, partition_keys, clustering_keys
-        
-
-
-    def execute_query_from_question(self,question: str, debug_cql: bool = True, debug_prompt: bool = True, return_cql: bool = False):
-        """Generates and executes CQL from a user question based on LLM output"""
-        
-      
-        if debug_prompt:
-            print(f"Prompting model with:\n{prompt}")
-        prompt = TEXT2CQL_PROMPT.format(
+        prompt = prompt_text.format(
         schema=self.schema,
         partition_keys=self.partition_keys,
         clustering_keys=self.clustering_keys,
         question=question,
-         )
-
-        
-        completion = self.client.send_message(prompt).text
-        completion=completion.replace("```","").replace("cql","").strip()
-
-        if debug_cql:
-            print(f"Question: {question}\nGenerated Query: {completion}\n")
-
-        # Need to trim trailing ';' if present to work with cassandra-driver
-        if completion.find(";") > -1:
-            completion = completion[:completion.find(";")]
-
-        results = self.cassandra_interface.execute_statement(completion)
-        if return_cql:
-            return (results, completion)
-        else:
-            return results
-
-    def execute_cql_query(self, question, debug_cql, return_cql, cql):
-        completion = cql.replace("```", "").replace("sql", "").replace("\n", "").strip()
-        if debug_cql:
-            print(f"Question: {question}\nGenerated Query: {completion}\n")
-
-        if completion.find(";") > -1:
-            completion = completion[:completion.find(";")]
-        completion = completion.replace('`', '')
-
-        results = self.cassandra_interface.execute_statement(completion)
-    
-        while (isinstance(results,dict)):
-            error_message=results.get("error")
-            statement=results.get("statement")
-            prompt = PROMPT_FIX_CQL_V2.format(
-                question=question,
-                error_message=error_message,
-                statement=statement,
-                schema=self.schema,
-                partition_keys=self.partition_keys,
-                clustering_keys=self.clustering_keys,
-            )
-            new_reponse=self.agent.chat_up.invoke([HumanMessage(content=prompt)]).content
-            new_reponse=new_reponse.replace("```", "").replace("sql", "").replace("\n", "").strip()
-            if new_reponse.find(";") > -1:
-                new_reponse = new_reponse[:new_reponse.find(";")]
-
-            results = self.cassandra_interface.execute_statement(new_reponse)
-            
-        if return_cql:
-            return results, completion
-    def answer_question(self,question: str, debug_cql: bool = True, debug_prompt: bool = False) -> str:
-        """Conducts a full RAG pipeline where the LLM retrieves relevant information
-        and references it to answer the question in natural language.
-        """
-        query_results, cql = self.execute_query_from_question(
-            question=question,
-            debug_cql=debug_cql,
-            debug_prompt=debug_prompt,
-            return_cql=True,
         )
-        prompt = ANSWER_PROMPT.format(
-            question=question,
-            results_repr=str(query_results),
-            cql=cql,
-        )
-
-        if debug_prompt:
-            print(f"Prompting model with:\n{prompt}")
-
         messages = [
-            HumanMessage(content=prompt),
-        ]
-        return self.client.invoke(messages).content
+                HumanMessage(content=prompt),
+            ]
+        client=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
+        completion = client.send_message(prompt).text
+        completion=completion.replace("```","").replace("json","").strip()
+        completion_json=json.loads(completion)
+        prev ={
+        }
+        prev_query=""
+        for_next_agent=False
+        for _,query_data in enumerate(completion_json["queries"]):
+            query=query_data["query"]
+            query=query.replace(";","")
+            if "WHERE"  in query and "ALLOW FILTERING" not in query:
+                query+= "ALLOW FILTERING"
+            if for_next_agent:
+                prompt="""
+            Given the result: {result} from the previous query,  
+            The following CQL query:  
+            {cql}  
+            is missing some required data to execute without errors.  
+            Please use the provided result to generate a new CQL query that correctly retrieves the necessary data.  
+            Return only the corrected CQL query.  
+            [cql]
+            """
+                result="\n".join([str(i) for i in prev[prev_query]])
+                pp=prompt.format(result=result,cql=query)
+                client=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
+
+                completion = client.send_message(pp).text
+                completion=completion.replace("```","").replace("cql","").strip()
+                if completion.find(";") > -1:
+                    completion = completion[:completion.find(";")]
+                resultas=self.cassandra_interface.execute_statement(completion)
+                while isinstance(resultas,dict):
+                    resultas = self.execute_cql_query_fallback( query, resultas)
+                prev[query]=resultas.all()
+            
+            else:
+                resultas=self.cassandra_interface.execute_statement(query)
+                while isinstance(resultas,dict):
+                    resultas = self.execute_cql_query_fallback( query, resultas)
+                prev[query]=resultas.all()
+                prev_query=query
+            for_next_agent=query_data["need_agent"]
+        data_collected=""
+        for key in prev:
+            data_collected+=f"{key}:\n{prev[key]}\n"
+        prompt = """
+        Given the following data: 
+        {data}
+        And the user question: 
+        {question}
+        Please answer the question based on the provided data.
+        [Answer]
+        """
+
+        prompt=prompt.format(data=data_collected,question=question)
+        answer = self.client.send_message(prompt).text
+        return answer
+#https://github.com/Hungreeee/Q-RAG/blob/main/demo/demo_notebook_squad.ipynb

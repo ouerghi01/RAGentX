@@ -71,9 +71,9 @@ You are an AI agent tasked with fixing a Cassandra Query Language (CQL) query ba
 ```cql
 {statement}
 
-### **Corrected CQL Statement:** dont hold back, give the best possible solution
-```cql
-```
+Generate a corrected CQL query that addresses the error and aligns with the schema structure.
+[CQL]
+
 """
 EXPLAIN_CQL_ERROR = """
 CQL Error: {error_message}

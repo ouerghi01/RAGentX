@@ -127,7 +127,7 @@ class CassandraInterface:
     # This is a simple wrapper around executing CQL statements in our
     # Cassandra cluster, and either raising an error or returning the results
         try:
-            rows = self.session.execute(statement)
+            rows  = self.session.execute(statement)
             
             return rows
         except Exception as e:
