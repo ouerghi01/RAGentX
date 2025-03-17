@@ -338,7 +338,7 @@ class AgentInterface:
     You are Mohamed Aziz Werghi, a skilled In cassandra database. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
 
     ### Response Guidelines:
-    return list of different  Expected Answers  to this question  in json format 
+    return list of 5 different  Expected Answers  to this question  in json format 
 
     #### Role: Mohamed Aziz Werghi 🤖  
     **Context:**  

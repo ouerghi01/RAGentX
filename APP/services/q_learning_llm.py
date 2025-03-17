@@ -2,48 +2,59 @@ import pandas as pd
 import numpy as np
 import asyncio
 import random
-from collections import Counter
+from collections import Counter, deque
 from math import sqrt
 from agent_service import AgentInterface
 
-# Hyperparameters
-N_STATES = 10
-N_ACTIONS = 5
-LEARNING_RATE = 0.1
-DISCOUNT_FACTOR = 0.9
-EPSILON = 0.1
-N_EPISODES = 10
+class QLearningAgent:
+    def __init__(self, n_states, n_actions, learning_rate, discount_factor, epsilon, epsilon_decay, min_epsilon, experience_replay_size):
+        self.n_states = n_states
+        self.n_actions = n_actions
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.min_epsilon = min_epsilon
+        self.experience_replay = deque(maxlen=experience_replay_size)
+        self.Q = np.zeros((n_states, n_actions))
 
-# Initialize Q-table
-Q = np.zeros((N_STATES, N_ACTIONS))
+    def choose_action(self, state):
+        if random.uniform(0, 1) < self.epsilon:
+            action = random.randint(0, self.n_actions - 1)
+        else:
+            action = np.argmax(self.Q[state, :])
+        return action
 
-def choose_action(state):
-    """Epsilon-greedy policy for action selection."""
-    if random.uniform(0, 1) < EPSILON:
-        action = random.randint(0, N_ACTIONS - 1)
-        print(f"Choosing random action: {action} for state: {state}")
-    else:
-        action = np.argmax(Q[state, :])
-        print(f"Choosing best action: {action} for state: {state}")
-    return action
+    def update_Q(self, state, action, reward, next_state):
+        predict = self.Q[state, action]
+        target = reward + self.discount_factor * np.max(self.Q[next_state, :])
+        self.Q[state, action] += self.learning_rate * (target - predict)
 
-def update_Q(state, action, reward):
-    """Updates the Q-table based on the reward received."""
-    predict = Q[state, action]
-    target = reward + DISCOUNT_FACTOR * np.max(Q[state, :])
-    Q[state, action] += LEARNING_RATE * (target - predict)
-    print(f"Updated Q-table at state: {state}, action: {action}, reward: {reward}")
+    def decay_epsilon(self):
+        self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
+
+    def store_experience(self, state, action, reward, next_state):
+        self.experience_replay.append((state, action, reward, next_state))
+
+    def replay_experiences(self):
+        if len(self.experience_replay) < self.experience_replay.maxlen:
+            return
+        batch = random.sample(self.experience_replay, self.experience_replay.maxlen)
+        for state, action, reward, next_state in batch:
+            self.update_Q(state, action, reward, next_state)
+
+    def normalize_state_action(self, state, action):
+        state = state / self.n_states
+        action = action / self.n_actions
+        return state, action
 
 async def initialize_agent():
-    """Initializes the agent asynchronously."""
     agent = AgentInterface()
     agent.compression_retriever = await agent.setup_ensemble_retrievers()
     agent.chain = agent.simple_chain()
     return agent
 
 def get_LLM_answers(agent, question):
-    """Fetches answers from the LLM for a given question."""
-    print(f"Fetching answers for the question: '{question}'")
     try:
         responses = agent.chain.invoke(question)
         return [answer['answer'] for answer in responses] if responses else []
@@ -52,7 +63,6 @@ def get_LLM_answers(agent, question):
         return []
 
 def calculate_answer_relevance_score(answer, question, data):
-    """Calculates the relevance score of an answer based on stored data."""
     matching_rows = data[data['question'] == question]
     if matching_rows.empty or 'response' not in data.columns:
         return 0
@@ -67,7 +77,6 @@ def calculate_answer_relevance_score(answer, question, data):
     return dot_product / (magnitude1 * magnitude2) if magnitude1 and magnitude2 else 0
 
 def evaluate_answer(answer, question, data):
-    """Evaluates the answer and assigns a reward based on relevance."""
     if not answer:
         return 0
     
@@ -83,32 +92,56 @@ def evaluate_answer(answer, question, data):
         return 0
 
 def generate_question(data):
-    """Randomly selects a question from the dataset."""
     questions = data['question'].tolist()
     question = random.choice(questions)
     state = questions.index(question) % N_STATES
     return question, state
-
-async def main():
-    """Main training loop."""
+N_STATES = 10
+data = pd.read_csv("/home/aziz/IA-DeepSeek-RAG-IMPL/APP/Data_with_explanations.csv")
+N_ACTIONS = 5
+LEARNING_RATE = 0.1
+DISCOUNT_FACTOR = 0.9
+EPSILON = 0.1
+N_EPISODES = 2
+async def train_agent():
+   
     agent = await initialize_agent()
-    data = pd.read_csv("/home/aziz/IA-DeepSeek-RAG-IMPL/APP/Data_with_explanations(1).csv")
     
-    for episode in range(N_EPISODES):
+    
+    q_agent = QLearningAgent(
+        n_states=N_STATES,
+        n_actions=N_ACTIONS,
+        learning_rate=LEARNING_RATE,
+        discount_factor=DISCOUNT_FACTOR,
+        epsilon=EPSILON,
+        epsilon_decay=0.99,
+        min_epsilon=0.01,
+        experience_replay_size=50
+    )
+    
+    for _ in range(N_EPISODES):
         question, state = generate_question(data)
         answers = get_LLM_answers(agent, question)
         
         if not answers:
             continue
         
-        action = choose_action(state)
-        action = min(action, len(answers) - 1)  # Ensure valid index
+        action = q_agent.choose_action(state)
+        action = min(action, len(answers) - 1)
         
         reward = evaluate_answer(answers[action], question, data)
-        update_Q(state, action, reward)
+        next_state = (state + 1) % N_STATES
+        
+        q_agent.store_experience(state, action, reward, next_state)
+        q_agent.replay_experiences()
+        q_agent.update_Q(state, action, reward, next_state)
+        q_agent.decay_epsilon()
     
     print("Training completed. Final Q-table:")
-    print(Q)
+    print(q_agent.Q)
+    # save the trained agent
+    np.savetxt("Q_table.csv", q_agent.Q, delimiter=",")
+    print("Q-table saved successfully to 'Q_table.csv'")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(train_agent())

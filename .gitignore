@@ -5,7 +5,7 @@
 
 /APP/token.json/
 /APP/sec/
-
+/APP/cassandra_knowledge/
 ollama/
 git
 ollama
