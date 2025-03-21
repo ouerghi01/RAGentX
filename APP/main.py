@@ -15,6 +15,7 @@ from fastapi import  FastAPI
 import random
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+from fastapi import Request, HTTPException
 
 class FastApp :
     """FastAPI Application wrapper for RAG-based chatbot implementation.
@@ -39,8 +40,8 @@ class FastApp :
     def __init__(self):
         self.cassandra_intra=CassandraManager()
         self.app=FastAPI()
-        self.auth_service=AuthService(self.cassandra_intra)
         self.agent=None
+        self.auth_service=AuthService(self.cassandra_intra,self.agent)
         self.templates = None
         self.origins =  [
         "http://192.168.100.66:3000/",
@@ -61,6 +62,9 @@ class FastApp :
         self.app.add_api_route("/register/", self.auth_service.register_user, methods=["POST"])
         self.app.add_api_route("/login/", self.auth_service.login_for_access_token, methods=["POST"])
         self.app.add_api_route("/uploads/", self.upload_file, methods=["POST"])
+        self.app.add_api_route("/logout/",self.auth_service.logout,methods=["POST"])
+        #self.app.add_middleware(self.auth_service.verify_token)
+
     async def upload_file(self,request: Request):
         file=await request.body()
         id=random.randint(1,100000)
@@ -93,11 +97,12 @@ class FastApp :
         #contents,urls = await main_crawler()
         self.agent=AgentInterface("assistant",self.cassandra_intra,name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads")
         self.agent.compression_retriever=await self.agent.setup_ensemble_retrievers()
-        self.agent.chain=self.agent.retrieval_chain()
+        self.agent.chain=None
+        self.auth_service.agent=self.agent
         self.session_id=self.cassandra_intra.create_room_session()
         self.templates = Jinja2Templates(directory="templates")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")
-    def send_message(self,request:Request,question:str=Form(...)):
+    async def send_message(self,request:Request,question:str=Form(...)):
         """
         Handles sending messages and retrieving responses from an agent.
         This method processes a message request, gets an answer from the agent, and returns
@@ -110,7 +115,11 @@ class FastApp :
         Example:
             response = send_message(request, "What is the weather today?")
         """
-        
+        jwt=request.cookies.get("auth_token")
+        current_user=await self.auth_service.get_current_user(jwt)
+        if( current_user is None):
+                raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
+
         html_answer= self.agent.answer_question(question,request,self.session_id)
         return html_answer
     
@@ -118,7 +127,15 @@ class FastApp :
         self.agent.CassandraInterface.session.shutdown()
         self.agent=None
         self.templates = None
-    def main_page(self,request: Request):
+    
+    async def main_page(self,request: Request):
+        jwt=request.cookies.get("auth_token")
+        current_user=await self.auth_service.get_current_user(jwt)
+        if( current_user is None):
+                self.agent.chain=None
+        else:
+             
+            self.agent.chain=self.agent.retrieval_chain(current_user)
         return self.templates.TemplateResponse("index.html", {"request": request})
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=8000)

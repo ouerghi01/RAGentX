@@ -30,19 +30,8 @@ class CassandraManager:
         self.CASSANDRA_PORT=os.getenv("CASSANDRA_PORT")
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
         self.KEYSPACE:str=os.getenv("KEYSPACE")
-        self.session=None
-    def __enter__(self):
-        """
-        Context manager entry point that initializes a Cassandra database session.
-
-        Returns:
-            self: The instance of the class containing a connected Cassandra session.
-
-        Note:
-            This method is automatically called when entering a 'with' statement block.
-            It establishes a connection to Cassandra using the configured port and username.
-        """
         self.session=self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
+    
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """

@@ -3,14 +3,15 @@ from dotenv import load_dotenv
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
-
+from fastapi import Request, HTTPException
+import time
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Annotated
-from fastapi import Request, Form
+from fastapi import Request, Form,Response
 
 load_dotenv()  # take environment variables from .env.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -35,10 +36,11 @@ class User(BaseModel):
 
 class AuthService:
      
-    def __init__(self,cassandra_intra):
+    def __init__(self,cassandra_intra,agent):
          
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.cassandra_intra=cassandra_intra
+        self.agent=agent
 
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
     def verify_password(self,plain_password, hashed_password):
@@ -69,7 +71,7 @@ class AuthService:
         if not self.verify_password(password, user.hashed_password):
             return False
         return user
-    async def login_for_access_token(self,
+    async def login_for_access_token(self,response:Response,
             form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         ) -> Token:
         user = self.authenticate_user( form_data.username, form_data.password)
@@ -83,7 +85,9 @@ class AuthService:
         access_token = self.create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
         )
+        response.set_cookie(key="auth_token", value=access_token)
         the_user=await self.get_current_user(access_token)
+        self.agent.chain=self.agent.retrieval_chain(the_user)
         return Token(access_token=access_token, token_type="bearer", the_user=the_user.username)
 
     def create_access_token(self,data: dict, expires_delta: timedelta | None = None):
@@ -104,13 +108,40 @@ class AuthService:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             username = payload.get("sub")
-            if username is None:
-                raise credentials_exception
+            if ((payload.get("exp")/60 < time.time()/60) or username is None):
+                return None
+            
             token_data = TokenData(username=username)
         except InvalidTokenError:
-            raise credentials_exception
+            return None
         user = self.get_user( username=token_data.username)
         if user is None:
             raise credentials_exception
         return user
+    async def logout(self,request:Request,response:Response ):
+        ttt=request.cookies.get("auth_token")
+        if ttt is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        payload = jwt.decode(ttt, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        token_data = TokenData(username=username)
+        user = self.get_user( username=token_data.username)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        payload["exp"] = datetime.now(timezone.utc).timestamp() - 1
+        response.set_cookie(key="auth_token", value=jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM))
+        return  {"detail": "Logged out"}
+            
+
     
+
+
+   

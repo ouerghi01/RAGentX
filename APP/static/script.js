@@ -218,6 +218,7 @@ function showLoggedInState(username) {
     document.getElementById('questions').style.display='none';
     div_new.remove();
     button_logout.remove();
+    
   };
   document.getElementById('logout-tab').innerHTML = "";
   document.getElementById('logout-tab').appendChild(p_new);

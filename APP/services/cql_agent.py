@@ -178,3 +178,5 @@ class CQLAGENT:
         answer = self.client.send_message(prompt).text
         return answer
 #https://github.com/Hungreeee/Q-RAG/blob/main/demo/demo_notebook_squad.ipynb
+cql_agent=CQLAGENT()
+print(cql_agent.answer_data_with_cql("List all the users in database"))

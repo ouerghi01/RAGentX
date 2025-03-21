@@ -27,10 +27,15 @@ from pathlib import Path
 from langchain.retrievers import  EnsembleRetriever
 
 from langchain_community.retrievers import BM25Retriever
+from pydantic import BaseModel
 
 
-from load_data import DataLoader
-
+from services.load_data import DataLoader
+class User(BaseModel):
+    username: str
+    email: str | None = None
+    his_job: str | None = None
+    hashed_password: str
 load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 from langchain_community.embeddings import HuggingFaceEmbeddings  
@@ -40,7 +45,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 from langchain_experimental.text_splitter import SemanticChunker
-from cassandra_service import CassandraManager
+from services.cassandra_service import CassandraManager
 from flashrank import Ranker 
 import json
 from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
@@ -51,7 +56,6 @@ class Answer(BaseModel):
     reponse: str = Field(description="The answer to the question")
 class Answers(BaseModel):
     answers: list[Answer] = Field(description="List of answers to the questions")
-    # Set up a parser + inject instructions into the prompt template.
 parser = JsonOutputParser(pydantic_object=Answers)
 
 class AgentInterface:
@@ -161,7 +165,7 @@ class AgentInterface:
 
         self.groundedness_check = UpstageGroundednessCheck()
 
-        self.documents,self.docs_ids=  [],[]
+        self.documents,self.docs_ids=  self.load_data.load_documents()
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
@@ -182,17 +186,21 @@ class AgentInterface:
         keys_to_delete = [key for key, (_, timestamp) in self.cache.items() if current_time - timestamp >= self.cache_ttl]
         for key in keys_to_delete:
             del self.cache[key]
-    def evaluate(self, html_output):
+    def evaluate(self, html_output,css_output):
         prompt = """
-        Evaluate the following HTML structure for correctness and completeness. 
-        Consider the following criteria:
-        1. Valid HTML syntax
-        2. Presence of essential elements (html, head, body)
-        3. Proper nesting of elements
-        4. Use of semantic HTML tags where appropriate
+                Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
+        Consider the following criteria:  
+        1. **Valid HTML Syntax**: Ensure proper structure, closing tags, and attribute usage.  
+        2. **Essential Elements**: Ensure the response includes necessary structural elements like `<head>`, but do not include `<html>` and `<body>` as they are already present.
+        3. **Proper Nesting**: Ensure elements are correctly nested without breaking hierarchy.  
+        4. **Semantic HTML**: Improve accessibility and maintainability by using appropriate tags.  
+        5. **CSS Optimization**: Check for redundant styles, improve responsiveness, and enhance aesthetics.  
+
 
         HTML to evaluate:
         {html_output}
+        css output
+        {css}
 
         Provide a JSON response with the following structure:
 
@@ -213,14 +221,14 @@ class AgentInterface:
         """
 
 
-        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output"])
+        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output","css"])
         llm_chain = LLMChain(
             llm=self.llm_gemini, 
             prompt=QA_CHAIN_PROMPT, 
             callbacks=None, 
             verbose=True
         )
-        evaluation = llm_chain.invoke({"html_output": html_output})
+        evaluation = llm_chain.invoke({"html_output": html_output,"css":css_output})
         text=evaluation['text'].replace("json","")
         text=text.replace("```","")
         reponse= json.loads(text) if evaluation else {"is_valid": False, "issues": ["Evaluation failed"], "suggestions": []}
@@ -248,8 +256,6 @@ class AgentInterface:
             compression_retriever: Compressed version of the final ensemble retriever
         """
         
-        #bm25_retriever=BM25Retriever.from_documents(self.documents)
-        #bm25_retriever.k=2 
         parent_retriever=self.configure_parent_child_splitters()
         await ( self.add_documents_to_parent_retriever(parent_retriever))
         retrieval=self.astra_db_store.as_retriever(
@@ -261,10 +267,13 @@ class AgentInterface:
                                         weights=[0.4, 0.6])
         multi_retriever = MultiQueryRetriever.from_llm(
             ensemble_retriever_new
-         , llm=self.llm
+         , llm=self.llm_gemini
         )
+        
+
+        
         ensemble_retriever = EnsembleRetriever(retrievers=[ensemble_retriever_new, multi_retriever],
-                                        weights=[0.5, 0.6])
+                                        weights=[0.4, 0.6])
         compression_retriever = ContextualCompressionRetriever(
         base_compressor=self.compressor,
         base_retriever=ensemble_retriever
@@ -366,7 +375,7 @@ class AgentInterface:
         )
 
         return chain
-    def retrieval_chain(self):
+    def retrieval_chain(self,user:User):
         """Creates and returns a retrieval chain for question answering.
 
         The chain combines a compression retriever, prompt template, and Gemini LLM model to:
@@ -382,9 +391,16 @@ class AgentInterface:
         Example:
             chain = agent.retrieval_chain()
             answer = chain.invoke("What is X?")"""
-
-        self.prompt = """
-    You are Mohamed Aziz Werghi, a skilled In cassandra database. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+     
+        name=user.email
+        job_user=user.his_job
+        part_prompt = f"""
+        You are a helpful assistant, providing support to the user based on their job.  
+        User Email: {name}  
+        Job: {job_user}  
+        """
+        self.prompt = part_prompt + """
+     
 
     ### Response Guidelines:
     - Format responses using **HTML** for clear presentation.
@@ -392,6 +408,7 @@ class AgentInterface:
     - Use headings (`<h2>`, `<h3>`), lists (`<ul>`, `<ol>`), and tables (`<table>`) where appropriate.
     - Ensure code snippets are wrapped in `<pre><code>` blocks for proper formatting.
     - If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
+    -Use  JavaScript is required, include <script>...</script> tags with your code for animation and manipulate dom.
 
     #### Role: Mohamed Aziz Werghi 🤖  
     **Context:**  
@@ -403,7 +420,7 @@ class AgentInterface:
     **Question:**  
     {question}  
 
-    **Your answer (in well-structured HTML & CSS format):**
+    **Your answer (in well-structured HTML & CSS && js  format):**
     """
 
 
@@ -486,7 +503,18 @@ class AgentInterface:
                     context_memory = "\n".join([msg.content for msg in context_memory])
                     context = f"{context}\n{context_memory}"
                 final_answer = self.chain.invoke(question_enhanced)
-                refined_answer = self.evaluate(final_answer)
+                PROMPT = """
+                Generate CSS from the given HTML.
+                HTML: {Html}
+                
+                CSS: [css]
+                """
+                PROMPT_out= PROMPT.format(
+                    Html=final_answer
+                )
+                css_reponse=self.llm_gemini.invoke(PROMPT_out)
+                
+                refined_answer = self.evaluate(final_answer,css_reponse)
                 final_answer=refined_answer["improved_html"]
                 self.logger.info(f"Answer provided: {final_answer}")
                 gc_result=self.groundedness_check.invoke({
