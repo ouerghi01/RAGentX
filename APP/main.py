@@ -1,10 +1,12 @@
+from google import genai
+
 import uvicorn
 from services.agent_service import AgentInterface
 from dotenv import load_dotenv
 
 from services.Crawler import main_crawler
 load_dotenv()  # take environment variables from .env.
-from fastapi import FastAPI,Request,Form 
+from fastapi import FastAPI,Request,Form, WebSocket 
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +18,26 @@ import random
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 from fastapi import Request, HTTPException
+class PredictNextWord:
+     def __init__(self):
+          self.prompt="""
+            Your role is to complete or correct the following sentence:  
+{sentence}  
+Provide the full corrected or completed sentence.
+            """
+          self.cache={}
+          self.llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
+     async def predict_next_word(self,websocket: WebSocket):
+        await websocket.accept()
+        while True:
 
+            data = await websocket.receive_text()
+            if data in self.cache:
+                await websocket.send_text(f" {self.cache[data]}")
+            else:
+                completion = self.llm.send_message(self.prompt.format(sentence=data)).text
+                self.cache[data]=completion
+                await websocket.send_text(f" {completion}")
 class FastApp :
     """FastAPI Application wrapper for RAG-based chatbot implementation.
     This class sets up a FastAPI application with CORS middleware, routes, and event handlers
@@ -43,6 +64,7 @@ class FastApp :
         self.agent=None
         self.auth_service=AuthService(self.cassandra_intra,self.agent)
         self.templates = None
+        self.agent_word_predictor=PredictNextWord()
         self.origins =  [
         "http://192.168.100.66:3000/",
         "http://localhost:3000/",
@@ -63,9 +85,16 @@ class FastApp :
         self.app.add_api_route("/login/", self.auth_service.login_for_access_token, methods=["POST"])
         self.app.add_api_route("/uploads/", self.upload_file, methods=["POST"])
         self.app.add_api_route("/logout/",self.auth_service.logout,methods=["POST"])
+        self.app.add_api_route("/verify/",self.verify_jwt,methods=["POST"])
         #self.app.add_middleware(self.auth_service.verify_token)
-
+        self.app.add_websocket_route("/ws", self.agent_word_predictor.predict_next_word)
+    
     async def upload_file(self,request: Request):
+        jwt=request.cookies.get("auth_token")
+        current_user=await self.auth_service.get_current_user(jwt)
+        if( current_user is None):
+                raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
+        
         file=await request.body()
         id=random.randint(1,100000)
         file_name="uploads/"+str(id)+".pdf"
@@ -76,6 +105,8 @@ class FastApp :
         # or saving the file in a database
         # or saving the file in a directory and then saving the link in the database
         self.agent=AgentInterface("assistant",self.cassandra_intra)
+        self.agent.compression_retriever=await self.agent.setup_ensemble_retrievers()
+        self.agent.chain=self.agent.retrieval_chain(current_user)
         return {
             "message":"File uploaded successfully"
         }
@@ -127,7 +158,11 @@ class FastApp :
         self.agent.CassandraInterface.session.shutdown()
         self.agent=None
         self.templates = None
-    
+    async def verify_jwt(self,request:Request,jwt:str=Form(...)):
+        current_user=await self.auth_service.get_current_user(jwt)
+        if( current_user is None):
+                raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
+        return current_user
     async def main_page(self,request: Request):
         jwt=request.cookies.get("auth_token")
         current_user=await self.auth_service.get_current_user(jwt)

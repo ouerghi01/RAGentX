@@ -6,9 +6,8 @@ function tryFollowingQuestion() {
     questions.innerHTML = ""; // Clear previous content
     
     const questionsExp = [
+        "Tell me who you assist as an agent.",
         "What is the main idea of the text?",
-        "What are the key points?",
-        "What is the author's argument?",
        
     ];
     
@@ -68,8 +67,6 @@ function showUIUploadPDF() {
   title.style.textAlign = "center";
   title.style.color = "white";
   title.style.fontWeight = "bold";
-
-  // i want title to be bold
   
   uploadpdf.appendChild(title);
   
@@ -175,15 +172,18 @@ function showUIUploadPDF() {
 
 }
 
-function showLoggedInState(username) {
+function showLoggedInState(username,job) {
   document.getElementById('messanger').style.display = 'flex';
   document.getElementById('login-tab').style.display = 'none';
   document.getElementById('register-tab').style.display = 'none';
   document.getElementById('login').style.display = 'none';
   document.getElementById('logout-tab').style.display = 'flex';
   const p_new = document.createElement('p');
-  p_new.textContent = " Welcome logged in as " + username;
+  p_new.textContent = " Welcome logged in as " + username 
   p_new.style.color = "white";
+  const p_nn = document.createElement('p');
+  p_nn.textContent = "Your job is " + job;
+  p_nn.style.color = "green";
   const button_logout = document.createElement('button');
   button_logout.innerHTML = "Logout";
   button_logout.style.width = "fit-content";
@@ -216,26 +216,41 @@ function showLoggedInState(username) {
     document.getElementById('logout-tab').style.display = 'none';
     document.getElementById('uploadpdf').style.display='none';
     document.getElementById('questions').style.display='none';
-    div_new.remove();
     button_logout.remove();
-    
+      
   };
   document.getElementById('logout-tab').innerHTML = "";
   document.getElementById('logout-tab').appendChild(p_new);
+    document.getElementById('logout-tab').appendChild(p_nn);
   document.getElementById('logout-tab').appendChild(button_logout);
 }
 
 if (typeof(Storage) !== "undefined") {
     // Code for localStorage/sessionStorage.
     const jwt = localStorage.getItem('jwt');
-    if(jwt){
+    const formData= new FormData();
+    formData.append("jwt", jwt);
+    const verified_jwt = fetch("/verify/", {
+        method: "POST",
+        body: formData,
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            return data 
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+    console.log(verified_jwt);
+    if(verified_jwt && jwt){
       document.getElementById('messanger').style.display = 'flex';
       document.getElementById('login-tab').style.display = 'none';
       document.getElementById('register-tab').style.display = 'none';
       document.getElementById('login').style.display = 'none';
       document.getElementById('logout-tab').style.display = 'flex';
       const username= localStorage.getItem('username');
-      showLoggedInState(username);
+        const job = localStorage.getItem('his_job');
+      showLoggedInState(username,job);
       showUIUploadPDF();
       tryFollowingQuestion();
     }else{
@@ -275,11 +290,12 @@ if (typeof(Storage) !== "undefined") {
         const response =JSON.parse( event.detail.xhr.response)
         
           const username= response.the_user;
-          
-          showLoggedInState(username);
-        
+          const job = response.his_job;
+          showLoggedInState(username,job);
+          localStorage.clear();
           localStorage.setItem('jwt', response.access_token);
           localStorage.setItem('username', username);
+          localStorage.setItem('his_job', job);
           //alert("Login Successful!"); // Show success message
           document.getElementById('uploadpdf').style.display='block';
           showUIUploadPDF();
@@ -298,3 +314,22 @@ if (typeof(Storage) !== "undefined") {
         console.log("Message request completed!");
       }
   });
+  var ws = new WebSocket("ws://localhost:8000/ws");
+  ws.onmessage = function(event) {
+    var input = document.getElementById("input");
+    input.style.transition = "all 0.3s ease";
+    input.value = ` ${event.data}`;
+    input.style.backgroundColor = "#f0f8ff";
+    setTimeout(() => {
+        input.style.backgroundColor = ""; 
+    }, 300);  
+  };
+  function sendMessage(event) {
+      var input = document.getElementById("input")
+      
+      if (input.value == "") {
+          return
+      }
+      ws.send(input.value)
+      
+  }

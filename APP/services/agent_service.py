@@ -143,6 +143,7 @@ class AgentInterface:
             client=ranker
         )
         self.cassandraInterface=cassandra_intra
+        self.cassandraInterface.clear_tables()
         #self.cassandraInterface.clear_tables()
         self.hf_embedding = None
         self.semantic_chunker = SemanticChunker (
@@ -165,7 +166,7 @@ class AgentInterface:
 
         self.groundedness_check = UpstageGroundednessCheck()
 
-        self.documents,self.docs_ids=  self.load_data.load_documents()
+        self.documents,self.docs_ids=  [],[]
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
@@ -188,15 +189,15 @@ class AgentInterface:
             del self.cache[key]
     def evaluate(self, html_output,css_output):
         prompt = """
-                Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
-        Consider the following criteria:  
-        1. **Valid HTML Syntax**: Ensure proper structure, closing tags, and attribute usage.  
-        2. **Essential Elements**: Ensure the response includes necessary structural elements like `<head>`, but do not include `<html>` and `<body>` as they are already present.
-        3. **Proper Nesting**: Ensure elements are correctly nested without breaking hierarchy.  
-        4. **Semantic HTML**: Improve accessibility and maintainability by using appropriate tags.  
-        5. **CSS Optimization**: Check for redundant styles, improve responsiveness, and enhance aesthetics.  
+                    Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
+            Consider the following criteria:  
 
-
+            1. **Valid HTML Syntax**: Ensure proper structure, closing tags, and attribute usage.  
+            2. **Essential Elements**: Ensure the response includes only the content inside `<body>`, excluding `<html>` and `<head>`.  
+            3. **Proper Nesting**: Ensure elements are correctly nested without breaking hierarchy.  
+            4. **Semantic HTML**: Improve accessibility and maintainability by using appropriate tags.  
+            5. **CSS Optimization**: Check for redundant styles, improve responsiveness, and enhance aesthetics.  
+            6. **Ensure CSS and JavaScript are included inside `<style>` and `<script>` within `<body>`.**  
         HTML to evaluate:
         {html_output}
         css output
@@ -410,7 +411,6 @@ class AgentInterface:
     - If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
     -Use  JavaScript is required, include <script>...</script> tags with your code for animation and manipulate dom.
 
-    #### Role: Mohamed Aziz Werghi 🤖  
     **Context:**  
     {context}  
 
@@ -538,7 +538,7 @@ class AgentInterface:
 
     def generate_message_html(self, question, final_answer):
         message_html = f"""
-            <div class="message user">
+            <div  class="message user">
                 <input type="hidden" id="partition_id" name="partition_id" value="{uuid.uuid1()}">
                 <div class="message-icon">
                 <img src="/static/icons8-user.svg" alt="bot" class="bot-icon">

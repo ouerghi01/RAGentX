@@ -24,6 +24,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     the_user:str
+    his_job:str
 class TokenData(BaseModel):
     username: str | None = None
 
@@ -88,7 +89,7 @@ class AuthService:
         response.set_cookie(key="auth_token", value=access_token)
         the_user=await self.get_current_user(access_token)
         self.agent.chain=self.agent.retrieval_chain(the_user)
-        return Token(access_token=access_token, token_type="bearer", the_user=the_user.username)
+        return Token(access_token=access_token, token_type="bearer", the_user=the_user.username,his_job=the_user.his_job)
 
     def create_access_token(self,data: dict, expires_delta: timedelta | None = None):
         to_encode = data.copy()
