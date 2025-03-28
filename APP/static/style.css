@@ -28,7 +28,24 @@ body {
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
     overflow: hidden;
   }
+  .error-para {
+    color: red;
+}
 
+.btn {
+    padding: 0.8rem;
+    background-image: linear-gradient(90deg, #F4244C, #F57D4E);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.25s;
+    width: fit-content;
+}
+
+.btn:hover {
+    padding: 1rem;
+}
   header {
     background-color: rgb(95, 95, 144);
     display: flex;

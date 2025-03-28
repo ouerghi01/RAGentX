@@ -284,6 +284,33 @@ if (typeof(Storage) !== "undefined") {
           button.disabled = !input.value;
         });
       });
+      function removeTags(str) {
+        if ((str === null) || (str === ''))
+            return false;
+        else
+            str = str.toString();
+        
+        // Regular expression to identify HTML tags in
+        // the input string. Replacing the identified
+        // HTML tag with a null string.
+        
+        str= str.replace(/(<([^>]+)>)/ig, '');
+        htmlText = str.replace(/style="[^"]*"/g, '');
+        // Remove CSS rules (everything inside { })
+        let cleanText = htmlText.replace(/\{[^}]*\}/g, '');
+
+        // Remove CSS selectors (lines that contain only a class or tag)
+        cleanText = cleanText.replace(/^\s*\S+\s*$/gm, '');
+
+        // Remove JavaScript-style comments
+        cleanText = cleanText.replace(/\/\/.*$/gm, '');  // Remove single-line comments
+        cleanText = cleanText.replace(/\/\*[\s\S]*?\*\//g, '');  // Remove multi-line comments
+
+        // Remove extra spaces and newlines
+        cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
+        return cleanText
+    }
   document.addEventListener("htmx:afterRequest", function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
@@ -302,18 +329,115 @@ if (typeof(Storage) !== "undefined") {
           tryFollowingQuestion();
 
       }
-
+         
       // Check if the request was for registration
       if (event.detail.elt.closest("#register")) {
           console.log("Register request completed!");
           alert("Registration Successful!");
       }
+      function extractTextWithoutHtml(htmlContent) {
+        // Create a temporary div element to parse the HTML
+        const div = document.createElement('div');
+        
+        // Set the HTML content to the div
+        div.innerHTML = htmlContent;
+        
+        // Remove all the styles and inline styles by clearing the element's style
+        const elementsWithStyle = div.querySelectorAll('*');
+        elementsWithStyle.forEach(el => {
+            el.removeAttribute('style'); // Remove inline styles
+        });
+    
+        // Extract and return only the plain text from the div
+        return div.textContent || div.innerText || '';
+    }
+    
       if(event.detail.elt.closest("#form_send_message")){
         document.getElementById('messages').style.display = 'flex';
+        messages_ai = document.getElementsByClassName('message ai');
+        for (let i = 0; i < messages_ai.length; i++) {
+            const element = messages_ai[i]
+            let ai_answer = element.querySelector("#ai_answer");
+            if (ai_answer) {
+                const convertBtn = element.querySelector("#convertBtn");
+
+                const enteredText = removeTags(ai_answer.textContent);
+                convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+                let isSpeaking = false; // Track speaking state
+                convertBtn.addEventListener('click', function () {
+                const speechSynth = window.speechSynthesis;
+                       
+                const error = element.querySelector('.error-para');
+                console.log(enteredText)
+                if (!enteredText.trim().length) {
+                    error.textContent = `Nothing to Convert! Enter text in the text area.`;
+                    return;
+                }
+                // If already speaking, stop it
+                if (isSpeaking) {
+                    speechSynth.cancel();
+                    isSpeaking = false;
+                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>'; // Reset button
+                    return;
+                }
+                error.textContent = ""; // Clear error message
+            
+                // Wait for voices to load before speaking
+                function speakText(text) {
+                    const sentences = text.split(/(?<=[.!?])\s+/); // Split text into sentences
+                    let index = 0;
+            
+                    function speakNextSentence() {
+                        if (index < sentences.length) {
+                            const newUtter = new SpeechSynthesisUtterance(sentences[index]);
+                            
+                            // Select a voice (English by default)
+                            const voices = speechSynth.getVoices();
+                            newUtter.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+            
+                            newUtter.rate = 1.0; // Normal speed
+            
+                            newUtter.onend = () => {
+                                index++;
+                                speakNextSentence(); // Speak the next part
+                            };
+                            speechSynth.speak(newUtter);
+                        } else {
+                            // Reset button when speech is fully done
+                            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
+                        }
+                    }
+            
+                    // Cancel any existing speech before starting new
+                    isSpeaking = true;
+                    speechSynth.cancel();
+            
+                    // Change button to indicate speaking
+                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
+            
+                    speakNextSentence();
+                }
+            
+                // Wait for voices to load before starting
+                if (speechSynth.getVoices().length === 0) {
+                    window.speechSynthesis.onvoiceschanged = function () {
+                        speakText(enteredText);
+                    };
+                } else {
+                    speakText(enteredText);
+                }
+            });
+            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+            }
         
-        console.log("Message request completed!");
+        }
+       
+        
+        
+
       }
-  });
+    }
+);
   var ws = new WebSocket("ws://localhost:8000/ws");
   ws.onmessage = function(event) {
     var input = document.getElementById("input");

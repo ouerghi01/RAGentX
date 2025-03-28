@@ -10,6 +10,7 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
+from langchain_core.globals import set_llm_cache
 from fastapi.responses import HTMLResponse
 import uuid
 from langchain.retrievers.multi_query import MultiQueryRetriever
@@ -36,6 +37,9 @@ class User(BaseModel):
     email: str | None = None
     his_job: str | None = None
     hashed_password: str
+# We can do the same thing with a SQLite cache
+from langchain_community.cache import SQLiteCache
+set_llm_cache(SQLiteCache(database_path="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/langchain.db"))
 load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 from langchain_community.embeddings import HuggingFaceEmbeddings  
@@ -143,7 +147,6 @@ class AgentInterface:
             client=ranker
         )
         self.cassandraInterface=cassandra_intra
-        self.cassandraInterface.clear_tables()
         #self.cassandraInterface.clear_tables()
         self.hf_embedding = None
         self.semantic_chunker = SemanticChunker (
@@ -151,7 +154,7 @@ class AgentInterface:
         )
         self.setup_vector_store()
 
-        self.llm_gemini = ChatGoogleGenerativeAI(
+        self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
             google_api_key=os.getenv("LANGSMITH_API_KEY"),
             temperature=0,
@@ -166,13 +169,12 @@ class AgentInterface:
 
         self.groundedness_check = UpstageGroundednessCheck()
 
-        self.documents,self.docs_ids=  [],[]
+        self.documents,self.docs_ids= [],[]
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
         self.combine_documents_chain=None
-        self.llm=Ollama(model=self.MODEL_NAME_llm, base_url=self.BASE_URL_OLLAMA,verbose=True,callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),)
-        self.memory = ConversationSummaryMemory(llm=self.llm_gemini,memory_key="chat_history",return_messages=True)
+        self.memory = ConversationSummaryMemory(llm=self.llm,memory_key="chat_history",return_messages=True)
 
         self.chain=None
     def setup_logging(self):
@@ -224,7 +226,7 @@ class AgentInterface:
 
         QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output","css"])
         llm_chain = LLMChain(
-            llm=self.llm_gemini, 
+            llm=self.llm, 
             prompt=QA_CHAIN_PROMPT, 
             callbacks=None, 
             verbose=True
@@ -268,7 +270,7 @@ class AgentInterface:
                                         weights=[0.4, 0.6])
         multi_retriever = MultiQueryRetriever.from_llm(
             ensemble_retriever_new
-         , llm=self.llm_gemini
+         , llm=self.llm
         )
         
 
@@ -325,9 +327,10 @@ class AgentInterface:
                 model_kwargs={'device': 'cpu'},
                 encode_kwargs={'normalize_embeddings': True}
             )
+           
             #self.CassandraInterface.clear_tables()
             self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.cassandraInterface.session, keyspace=self.cassandraInterface.KEYSPACE, table_name="vectores_new")
-
+            
             #self.astra_db_store.clear()
         except Exception as e:
             print(f"Error initializing AstraDBVectorStore: {e}")
@@ -371,7 +374,7 @@ class AgentInterface:
                 "question": RunnablePassthrough()
             }
             | PromptTemplate.from_template(self.prompt)
-            | self.llm_gemini
+            | self.llm
             | StrOutputParser() | parser
         )
 
@@ -512,11 +515,12 @@ class AgentInterface:
                 PROMPT_out= PROMPT.format(
                     Html=final_answer
                 )
-                css_reponse=self.llm_gemini.invoke(PROMPT_out)
+                css_reponse=self.llm.invoke(PROMPT_out)
                 
                 refined_answer = self.evaluate(final_answer,css_reponse)
                 final_answer=refined_answer["improved_html"]
                 self.logger.info(f"Answer provided: {final_answer}")
+                
                 gc_result=self.groundedness_check.invoke({
                 "context": context,
                 "answer": final_answer,
@@ -551,8 +555,15 @@ class AgentInterface:
                     <div class="message-icon">
                     <img src="/static/bot.png" alt="bot" class="bot-icon">
                     </div>
-                    <div class="message-content">
+                    <div id="ai_answer" class="message-content">
                     {final_answer}
+                    <p class="error-para"></p>
+
+                    <button class="btn" id="convertBtn">
+                       <i class="fa-solid fa-volume-high"></i>
+
+            </button>
+
                     </div>
              </div>
             """

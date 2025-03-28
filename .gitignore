@@ -13,5 +13,6 @@ ollama
 /APP/.env
 /APP/exemples/
 /APP/services/__pycache__/
-
+/APP/langchain.db
+/APP/services/__pycache__/
 docs
