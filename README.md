@@ -68,8 +68,12 @@ Below are some screenshots of the app:
 ![App Screenshot 3](one3.png)
 We can see how the agent generates responses with a responsive UI, thanks to the prompt engineering implemented with LangChain.
 
-## License
-MIT License
 
-## Contributors
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contributing
 - **Mohamed Aziz Werghi** - [GitHub](https://github.com/ouerghi01)
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
