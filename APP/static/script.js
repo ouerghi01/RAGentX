@@ -442,7 +442,15 @@ if (typeof(Storage) !== "undefined") {
   ws.onmessage = function(event) {
     var input = document.getElementById("input");
     input.style.transition = "all 0.3s ease";
-    input.value = ` ${event.data}`;
+    
+    var availableTags = [event.data]
+    console.log(event.data)
+    $(function() {
+        $("#input").autocomplete({
+            source:  availableTags 
+        });
+    });
+    //input.value = ` ${event.data}`;
     input.style.backgroundColor = "#f0f8ff";
     setTimeout(() => {
         input.style.backgroundColor = ""; 

@@ -1,9 +1,12 @@
+import ctypes
 from google import genai
 
 import uvicorn
+from services.trie_service import TrieService
 from services.agent_service import AgentInterface
 from dotenv import load_dotenv
-
+import string 
+import pandas as pd 
 from services.Crawler import main_crawler
 load_dotenv()  # take environment variables from .env.
 from fastapi import FastAPI,Request,Form, WebSocket 
@@ -22,10 +25,21 @@ class PredictNextWord:
      def __init__(self):
           self.prompt="""
             Your role is to complete or correct the following sentence:  
-{sentence}  
-Provide the full corrected or completed sentence.
+            {sentence}  
+            {suggestions}
+            Provide the full corrected or completed sentence.
+            Provide different suggestions separated by a comma.
+            
             """
           self.cache={}
+          translator = str.maketrans('', '', string.punctuation)
+          df = pd.read_csv("Data_with_explanations.csv")
+          if "question" not in df.columns:
+                raise ValueError("Column 'question' not found in CSV!")
+          questions = df["question"].dropna().tolist()
+          data = [word.translate(translator).lower() for sentence in questions for word in sentence.split() if word not in string.punctuation]
+          tokens = (ctypes.c_char_p * len(data))(*(word.encode("utf-8") for word in data))
+          self.treeServ= TrieService(tokens=tokens)
           self.llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
      async def predict_next_word(self,websocket: WebSocket):
         await websocket.accept()
@@ -35,7 +49,10 @@ Provide the full corrected or completed sentence.
             if data in self.cache:
                 await websocket.send_text(f" {self.cache[data]}")
             else:
-                completion = self.llm.send_message(self.prompt.format(sentence=data)).text
+                token_last_word = data.split()[-1].lower()
+
+                suggestions = self.treeServ.autocomplete(token_last_word)
+                completion = self.llm.send_message(self.prompt.format(sentence=data,suggestions=suggestions)).text
                 self.cache[data]=completion
                 await websocket.send_text(f" {completion}")
 class FastApp :
@@ -77,6 +94,7 @@ class FastApp :
         allow_headers=["*"],
         )
         self.session_id=None
+        
         self.app.add_event_handler("startup", self.startup_event)
         self.app.add_event_handler("shutdown", self.shutdown_event)
         self.app.add_api_route("/", self.main_page)

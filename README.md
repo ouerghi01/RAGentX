@@ -10,6 +10,7 @@ Agent Bot is an AI-powered assistant that leverages **Retrieval-Augmented Genera
 - **Cassandra DataStax**: Scalable NoSQL database for efficient data storage.
 - **LLM** Integration: Supports Gemini and Ollama for AI-driven responses.
 -**HTMX**: Enhances frontend interactivity for dynamic HTML updates.
+- **Auto-complete Algorithm**: Built using a Trie data structure in C and wrapped for Python, enabling efficient and fast suggestions to power LLMs with accurate recommendations.
 
 ## Installation
 ```bash
@@ -19,6 +20,8 @@ cd agent-bot
 
 # Install dependencies
 pip install -r requirements.txt
+make 
+make clean
 ```
 
 ## Configuration

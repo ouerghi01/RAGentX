@@ -16,3 +16,9 @@ ollama
 /APP/langchain.db
 /APP/services/__pycache__/
 docs
+/APP/Data_with_explanations.csv
+/APP/trie_data.txt
+/APP/clib.so
+/APP/c_src/trie.o
+
+
