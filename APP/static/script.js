@@ -1,5 +1,4 @@
 
-
 function tryFollowingQuestion() {
     const questions = document.getElementById('questions');
     questions.style.display = "flex";
@@ -285,6 +284,7 @@ if (typeof(Storage) !== "undefined") {
         });
       });
       function removeTags(str) {
+        
         if ((str === null) || (str === ''))
             return false;
         else
@@ -308,10 +308,24 @@ if (typeof(Storage) !== "undefined") {
 
         // Remove extra spaces and newlines
         cleanText = cleanText.replace(/\s+/g, ' ').trim();
+        // Remove CSS selectors and pseudo-elements
+        cleanText = cleanText.replace(/\.[\w-]+(\s+|::?[\w-]+)?/g, '');
+        // Remove specific tags like h2, h3, th, td, and @keyframes
+        cleanText = cleanText.replace(/<\/?(h2|h3|th|td)[^>]*>/gi, ''); // Remove h2, h3, th, td tags
+        cleanText = cleanText.replace(/@keyframes\s+[^{]*\{[^}]*\}/gi, ''); // Remove @keyframes rules
+        cleanText = cleanText.replace(/@media\s*\(max-width:\s*600px\)[^{]*\{[^}]*\}/gi, '');
+        // Remove all remaining HTML tags
+        cleanText = cleanText.replace(/<\/?[^>]+(>|$)/g, '');
+        // Remove specific tags and media queries
+        cleanText = cleanText.replace(/<\/?(h2|h3|table|th|td)[^>]*>/gi, ''); // Remove h2, h3, table, th, td tags
+        cleanText = cleanText.replace(/@media\s*\(max-width:\s*600px\)[^{]*\{[^}]*\}/gi, ''); // Remove @media queries
+        text = cleanText.replace(/[a-zA-Z0-9\s,#.:>\[\]=~^$*()]+?\s*\{[^}]*\}/g, "");
+        return text
+        
+        
 
-        return cleanText
     }
-  document.addEventListener("htmx:afterRequest", function(event) {
+  document.addEventListener("htmx:afterRequest", async function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
         const response =JSON.parse( event.detail.xhr.response)
@@ -335,24 +349,9 @@ if (typeof(Storage) !== "undefined") {
           console.log("Register request completed!");
           alert("Registration Successful!");
       }
-      function extractTextWithoutHtml(htmlContent) {
-        // Create a temporary div element to parse the HTML
-        const div = document.createElement('div');
-        
-        // Set the HTML content to the div
-        div.innerHTML = htmlContent;
-        
-        // Remove all the styles and inline styles by clearing the element's style
-        const elementsWithStyle = div.querySelectorAll('*');
-        elementsWithStyle.forEach(el => {
-            el.removeAttribute('style'); // Remove inline styles
-        });
-    
-        // Extract and return only the plain text from the div
-        return div.textContent || div.innerText || '';
-    }
-    
+      
       if(event.detail.elt.closest("#form_send_message")){
+        
         document.getElementById('messages').style.display = 'flex';
         messages_ai = document.getElementsByClassName('message ai');
         for (let i = 0; i < messages_ai.length; i++) {
@@ -361,7 +360,17 @@ if (typeof(Storage) !== "undefined") {
             if (ai_answer) {
                 const convertBtn = element.querySelector("#convertBtn");
 
-                const enteredText = removeTags(ai_answer.textContent);
+                let enteredText = removeTags(ai_answer.textContent);
+               
+                const apiKey="AIzaSyD59T_Pyw4rzPrU90s_64Ctp2kOWBfKH9Q"
+                const userInput = `Explain the content of this text while ignoring any HTML or CSS: ${enteredText}`;
+                const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: userInput }] }] })
+                });
+                const data = await res.json();
+                enteredText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
                 convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
                 let isSpeaking = false; // Track speaking state
                 convertBtn.addEventListener('click', function () {
@@ -440,22 +449,31 @@ if (typeof(Storage) !== "undefined") {
 );
   var ws = new WebSocket("ws://localhost:8000/ws");
   ws.onmessage = function(event) {
-    var input = document.getElementById("input");
-    input.style.transition = "all 0.3s ease";
-    
-    var availableTags = [event.data]
-    console.log(event.data)
-    $(function() {
-        $("#input").autocomplete({
-            source:  availableTags 
+    var input = $("#input"); // jQuery selector
+    input.css("transition", "all 0.3s ease");
+
+    try {
+        var availableTags = event.data.split(',').map(tag => tag.trim());
+
+        console.log(availableTags); // Debug: Ensure it's a valid list
+
+        
+        
+        // Reinitialize autocomplete with new data
+        input.autocomplete({
+            source: availableTags
         });
-    });
-    //input.value = ` ${event.data}`;
-    input.style.backgroundColor = "#f0f8ff";
-    setTimeout(() => {
-        input.style.backgroundColor = ""; 
-    }, 300);  
-  };
+        
+
+    } catch (error) {
+        console.error("Failed to parse server response:", error);
+    }
+
+    // Add background effect
+    input.css("background-color", "#f0f8ff");
+    setTimeout(() => input.css("background-color", ""), 300);
+};
+
   function sendMessage(event) {
       var input = document.getElementById("input")
       

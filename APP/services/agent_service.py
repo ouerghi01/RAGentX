@@ -322,6 +322,19 @@ class AgentInterface:
             None
         """
         try:
+            self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
+
+
+            self.astra_db_store = AstraDBVectorStore(
+            collection_name="langchain_unstructured",
+            embedding=self.hf_embedding,
+            token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
+            api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
+            )
+            
+        except Exception as e:
+            print(f"Error initializing AstraDBVectorStore: {e}")
+
             self.hf_embedding=HuggingFaceEmbeddings(
                 model_name="all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
@@ -331,17 +344,7 @@ class AgentInterface:
             #self.CassandraInterface.clear_tables()
             self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.cassandraInterface.session, keyspace=self.cassandraInterface.KEYSPACE, table_name="vectores_new")
             
-            #self.astra_db_store.clear()
-        except Exception as e:
-            print(f"Error initializing AstraDBVectorStore: {e}")
-
-            self.astra_db_store = AstraDBVectorStore(
-            collection_name="langchain_unstructured",
-            embedding=self.hf_embedding,
-            token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
-            api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
-            )
-            print(f"Error initializing AstraDBVectorStore: {e}")
+            self.astra_db_store.clear()
            
     def simple_chain(self):
        
@@ -538,7 +541,9 @@ class AgentInterface:
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
 
             self.cassandraInterface.insert_answer(session_id,question,final_answer)
-            return self.generate_message_html(question, final_answer)
+            reponse= self.generate_message_html(question, final_answer)
+         
+            return reponse
 
     def generate_message_html(self, question, final_answer):
         message_html = f"""
