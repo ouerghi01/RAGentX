@@ -90,7 +90,6 @@ class PDFService:
             }
             records=df.to_dict('records')
             return records
-
       def crop_image_from_page(self,page, page_height, img):
             x0, y0, x1, y1 = img['x0'], page_height - img['y1'], img['x1'], page_height - img['y0']
             x0 = max(0, x0)

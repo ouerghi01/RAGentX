@@ -10,7 +10,7 @@ class DataLoader:
         self.UPLOAD_DIR = upload_dir
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)
 
-    def load_documents(self):
+    def load_documents(self,semantic_spliter):
         docs = []
         all_files = os.listdir(self.UPLOAD_DIR)
         threads = []
@@ -26,6 +26,7 @@ class DataLoader:
             thread.start()
         for thread in threads:
             thread.join()
+        docs=semantic_spliter.split_documents(docs)
         doc_ids = [str(uuid.uuid4()) for _ in docs]
         return docs, doc_ids
 

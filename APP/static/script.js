@@ -363,7 +363,7 @@ if (typeof(Storage) !== "undefined") {
                 let enteredText = removeTags(ai_answer.textContent);
                
                 const apiKey="AIzaSyD59T_Pyw4rzPrU90s_64Ctp2kOWBfKH9Q"
-                const userInput = `Explain the content of this text while ignoring any HTML or CSS: ${enteredText}`;
+                const userInput = `Convert the given text into natural-sounding speech : ${enteredText}`;
                 const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -371,6 +371,7 @@ if (typeof(Storage) !== "undefined") {
                 });
                 const data = await res.json();
                 enteredText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+                enteredText=enteredText.replace(/\*+/g, '');
                 convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
                 let isSpeaking = false; // Track speaking state
                 convertBtn.addEventListener('click', function () {

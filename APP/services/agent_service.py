@@ -3,8 +3,7 @@ import logging
 import time
 from collections import OrderedDict
 from langchain_community.document_compressors import FlashrankRerank
-from langchain_core.callbacks import CallbackManager
-from langchain_core.callbacks import StreamingStdOutCallbackHandler
+
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
     HarmBlockThreshold,
@@ -32,11 +31,7 @@ from pydantic import BaseModel
 
 
 from services.load_data import DataLoader
-class User(BaseModel):
-    username: str
-    email: str | None = None
-    his_job: str | None = None
-    hashed_password: str
+
 # We can do the same thing with a SQLite cache
 from langchain_community.cache import SQLiteCache
 set_llm_cache(SQLiteCache(database_path="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/langchain.db"))
@@ -44,15 +39,13 @@ load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 from langchain_community.embeddings import HuggingFaceEmbeddings  
 from langchain_community.vectorstores.cassandra import Cassandra
-from langchain_community.llms import Ollama
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 from langchain_experimental.text_splitter import SemanticChunker
 from services.cassandra_service import CassandraManager
 from flashrank import Ranker 
-import json
-from langchain_upstage import ChatUpstage,UpstageGroundednessCheck
+from langchain_upstage import UpstageGroundednessCheck
 from langchain_core.prompts import PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import JsonOutputParser
@@ -61,7 +54,11 @@ class Answer(BaseModel):
 class Answers(BaseModel):
     answers: list[Answer] = Field(description="List of answers to the questions")
 parser = JsonOutputParser(pydantic_object=Answers)
-
+class User(BaseModel):
+    username: str
+    email: str | None = None
+    his_job: str | None = None
+    hashed_password: str
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -149,9 +146,7 @@ class AgentInterface:
         self.cassandraInterface=cassandra_intra
         #self.cassandraInterface.clear_tables()
         self.hf_embedding = None
-        self.semantic_chunker = SemanticChunker (
-        self.hf_embedding, 
-        )
+        
         self.setup_vector_store()
 
         self.llm = ChatGoogleGenerativeAI(
@@ -165,10 +160,12 @@ class AgentInterface:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             },
         )
-        self.chat_up=ChatUpstage()
 
         self.groundedness_check = UpstageGroundednessCheck()
-
+        self.semantic_chunker = SemanticChunker (
+        self.hf_embedding, 
+        )
+        self.semantic_chunker.split_documents
         self.documents,self.docs_ids= [],[]
         self.parent_store = InMemoryStore()
 
@@ -191,37 +188,30 @@ class AgentInterface:
             del self.cache[key]
     def evaluate(self, html_output,css_output):
         prompt = """
-                    Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
-            Consider the following criteria:  
+Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
+Ensure the updated HTML follows these criteria:  
 
-            1. **Valid HTML Syntax**: Ensure proper structure, closing tags, and attribute usage.  
-            2. **Essential Elements**: Ensure the response includes only the content inside `<body>`, excluding `<html>` and `<head>`.  
-            3. **Proper Nesting**: Ensure elements are correctly nested without breaking hierarchy.  
-            4. **Semantic HTML**: Improve accessibility and maintainability by using appropriate tags.  
-            5. **CSS Optimization**: Check for redundant styles, improve responsiveness, and enhance aesthetics.  
-            6. **Ensure CSS and JavaScript are included inside `<style>` and `<script>` within `<body>`.**  
-        HTML to evaluate:
-        {html_output}
-        css output
-        {css}
+1. **Valid HTML Syntax**: Proper structure, closing tags, and attribute usage.  
+2. **Essential Elements**: Only include content inside `<body>`, excluding `<html>` and `<head>`.  
+3. **Proper Nesting**: Maintain correct hierarchy without breaking semantics.  
+4. **Semantic HTML**: Use appropriate tags for accessibility and maintainability.  
+5. **CSS Optimization**: Remove redundancy, improve responsiveness, and enhance UI.  
+6. **Ensure styles and scripts are included inside `<style>` and `<script>` within `<body>`.**  
 
-        Provide a JSON response with the following structure:
+**HTML to evaluate:**  
+{html_output}  
 
-        
-            "is_valid": true/false,
-            "issues": ["list", "of", "identified", "issues"],
-            "suggestions": ["list", "of", "recommended", "improvements"],
-            "improved_html": "new, improved HTML code with fixes"
-        
+**CSS Output:**  
+{css}  
 
-        In your response:
-        - "is_valid" should be a boolean indicating whether the HTML is correct or not.
-        - "issues" should be an array listing any errors, missing elements, or misused tags.
-        - "suggestions" should be an array offering practical suggestions for improvement or better practices.
-        - "improved_html" should be the refined version of the HTML with improvements based on the identified issues and suggestions.
+Generate an improved **HTML structure only** that fits within a container with:  
+- **max-width: 600px**, centered using `margin: 0 auto`  
+- **Padding, light gray background (`#f9f9f9`), rounded corners, and a subtle shadow**  
 
-        Please ensure that the improved HTML reflects best practices and correct syntax.
-        """
+### **Output Format:**  
+Return **only** the improved HTML. Do not include explanations or additional text.
+"""
+
 
 
         QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output","css"])
@@ -232,10 +222,12 @@ class AgentInterface:
             verbose=True
         )
         evaluation = llm_chain.invoke({"html_output": html_output,"css":css_output})
-        text=evaluation['text'].replace("json","")
+        text=evaluation['text']
         text=text.replace("```","")
-        reponse= json.loads(text) if evaluation else {"is_valid": False, "issues": ["Evaluation failed"], "suggestions": []}
-        return reponse
+        text=text.replace("html","")
+        text=text.replace("html\n","")
+
+        return text
     async def setup_ensemble_retrievers(self):
         """
         Sets up an ensemble of retrievers for enhanced document retrieval.
@@ -439,7 +431,7 @@ class AgentInterface:
                 "question": RunnablePassthrough()
             }
             | PromptTemplate.from_template(self.prompt)
-            | self.chat_up
+            | self.llm
             | StrOutputParser()
         )
 
@@ -521,20 +513,13 @@ class AgentInterface:
                 css_reponse=self.llm.invoke(PROMPT_out)
                 
                 refined_answer = self.evaluate(final_answer,css_reponse)
-                final_answer=refined_answer["improved_html"]
+                final_answer=refined_answer
                 self.logger.info(f"Answer provided: {final_answer}")
                 
-                gc_result=self.groundedness_check.invoke({
-                "context": context,
-                "answer": final_answer,
-                })
-                if gc_result.lower().startswith("grounded"):
-                    print("Grounded")
-                else:
-                    print("Not Grounded")
+               
             except Exception as e:
                 self.logger.error(f"Error while answering question: {e}")
-                self.chain=self.retrieval_chain(self.chat_up)
+                self.chain=self.retrieval_chain(self.llm)
                 final_answer = self.chain.invoke(question_enhanced)
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)

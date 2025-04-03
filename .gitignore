@@ -10,7 +10,6 @@ ollama/
 git
 ollama
 /APP/.ipynb_checkpoints/
-/APP/.env
 /APP/exemples/
 /APP/services/__pycache__/
 /APP/langchain.db
@@ -18,7 +17,6 @@ ollama
 docs
 /APP/Data_with_explanations.csv
 /APP/trie_data.txt
-/APP/clib.so
 /APP/c_src/trie.o
 
 
