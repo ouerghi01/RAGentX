@@ -1,4 +1,36 @@
 
+function showAlert(message) {
+    const alertBox = document.getElementById("error-alert");
+    alertBox.style.display="flex";
+    const alertText = document.getElementById("alert-text");
+  
+    alertText.textContent = message;
+    alertBox.classList.remove("hidden");
+  
+    setTimeout(() => {
+      closeAlert();
+    }, 5000); // Auto-close after 5 seconds
+  }
+  
+  function closeAlert() {
+    document.getElementById("error-alert").style.display='none';
+  }
+  function showSuccessAlert(message) {
+    const alertBox = document.getElementById("success-alert");
+    alertBox.style.display="flex";
+    const alertText = document.getElementById("success-alert-text");
+  
+    alertText.textContent = message;
+    alertBox.classList.remove("hidden");
+  
+    setTimeout(() => {
+      closeSuccessAlert();
+    }, 5000); // Auto-close after 5 seconds
+  }
+  
+  function closeSuccessAlert() {
+    document.getElementById("success-alert").style.display='none';
+  }
 function tryFollowingQuestion() {
     const questions = document.getElementById('questions');
     questions.style.display = "flex";
@@ -12,7 +44,7 @@ function tryFollowingQuestion() {
     
     const title = document.createElement('h4');
     title.textContent = "Try asking these questions:";
-    title.style.color = "white";
+    title.style.color = "#ffffff";
     title.style.marginBottom = "10px";
     title.style.textAlign = "center";
     questions.appendChild(title);
@@ -62,7 +94,7 @@ function showUIUploadPDF() {
   uploadpdf.innerHTML = ""; // Clear previous content
   
   const title = document.createElement("h3");
-  title.textContent = "Upload a document for additional context";
+  title.textContent = "Upload context file";
   title.style.textAlign = "center";
   title.style.color = "white";
   title.style.fontWeight = "bold";
@@ -100,13 +132,13 @@ function showUIUploadPDF() {
   });
   
   const promptText = document.createElement("p");
-  promptText.textContent = "Drag and drop a file here or click to upload";
-  promptText.style.color = "#555";
+  promptText.textContent = "Drop or click to upload";
+  promptText.style.color = "#2a3439";
   dropArea.appendChild(promptText);
   
   const fileLimit = document.createElement("p");
   fileLimit.textContent = "Limit: 200 MB per file";
-  fileLimit.style.color = "#777";
+  fileLimit.style.color = "#2a3439";
   fileLimit.style.fontSize = "14px";
   dropArea.appendChild(fileLimit);
   
@@ -171,59 +203,72 @@ function showUIUploadPDF() {
 
 }
 
-function showLoggedInState(username,job) {
-  document.getElementById('messanger').style.display = 'flex';
-  document.getElementById('login-tab').style.display = 'none';
-  document.getElementById('register-tab').style.display = 'none';
-  document.getElementById('login').style.display = 'none';
-  document.getElementById('logout-tab').style.display = 'flex';
-  const p_new = document.createElement('p');
-  p_new.textContent = " Welcome logged in as " + username 
-  p_new.style.color = "white";
-  const p_nn = document.createElement('p');
-  p_nn.textContent = "Your job is " + job;
-  p_nn.style.color = "green";
-  const button_logout = document.createElement('button');
-  button_logout.innerHTML = "Logout";
-  button_logout.style.width = "fit-content";
-  button_logout.style.padding = "8px 15px";
-  button_logout.style.border = "none";
-  button_logout.style.borderRadius = "5px";
-  button_logout.style.backgroundColor = "#007bff";
-  button_logout.style.color = "#EAECEF";
-  button_logout.style.cursor = "pointer";
-  button_logout.style.marginTop = "10px";
-  button_logout.style.fontWeight = "bold";
-  button_logout.style.transition = "background-color 0.3s";
-  button_logout.style.position = "relative";
-  button_logout.style.right = "15%";
-  button_logout.style.alignItems = "center";
-  button_logout.style.transform = "translateX(30%)";
-  button_logout.style.justifyContent = "center";
-  button_logout.style.display = "flex";
-
-  button_logout.onmouseover = function () { this.style.backgroundColor = "#0056b3"; };
-  button_logout.onmouseout = function () { this.style.backgroundColor = "#007bff"; };
-
-
-  button_logout.onclick = function () {
-    localStorage.removeItem('jwt');
-    document.getElementById('messanger').style.display = 'none';
-    document.getElementById('login-tab').style.display = 'block';
-    document.getElementById('register-tab').style.display = 'block';
-    document.getElementById('login').style.display = 'block';
-    document.getElementById('logout-tab').style.display = 'none';
-    document.getElementById('uploadpdf').style.display='none';
-    document.getElementById('questions').style.display='none';
-    button_logout.remove();
-      
-  };
-  document.getElementById('logout-tab').innerHTML = "";
-  document.getElementById('logout-tab').appendChild(p_new);
-    document.getElementById('logout-tab').appendChild(p_nn);
-  document.getElementById('logout-tab').appendChild(button_logout);
-}
-
+function showLoggedInState(username, job) {
+    const messanger = document.getElementById('messanger');
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const login = document.getElementById('login');
+    const logoutTab = document.getElementById('logout-tab');
+  
+    // Show/hide elements
+    messanger.style.display = 'flex';
+    loginTab.style.display = 'none';
+    registerTab.style.display = 'none';
+    login.style.display = 'none';
+    logoutTab.style.display = 'flex';
+  
+    // Clean previous content
+    logoutTab.innerHTML = "";
+  
+    // Style the logout-tab container
+    logoutTab.style.alignItems = 'center';
+    logoutTab.style.gap = '15px';
+    logoutTab.style.color = '#fff';
+    logoutTab.style.fontSize = '16px';
+    logoutTab.style.fontWeight = '500';
+  
+    // Info text container (username + job in same line)
+    const infoText = document.createElement('span');
+    infoText.innerHTML = `👋 Welcome, <strong>${username}</strong> &nbsp;&nbsp;|&nbsp;&nbsp; 💼 <span style="color:lightgreen">${job}</span>`;
+    
+    // Logout button
+    const buttonLogout = document.createElement('button');
+    buttonLogout.innerText = "Logout";
+    Object.assign(buttonLogout.style, {
+      padding: "6px 14px",
+      border: "none",
+      borderRadius: "6px",
+      backgroundColor: "#dc3545",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: "bold",
+      fontSize: "14px",
+      transition: "background-color 0.3s",
+    });
+  
+    buttonLogout.onmouseover = () => {
+      buttonLogout.style.backgroundColor = "#c82333";
+    };
+    buttonLogout.onmouseout = () => {
+      buttonLogout.style.backgroundColor = "#dc3545";
+    };
+  
+    buttonLogout.onclick = function () {
+      localStorage.removeItem('jwt');
+      messanger.style.display = 'none';
+      loginTab.style.display = 'block';
+      registerTab.style.display = 'block';
+      login.style.display = 'block';
+      logoutTab.style.display = 'none';
+      document.getElementById('uploadpdf').style.display = 'none';
+      document.getElementById('questions').style.display = 'none';
+      logoutTab.innerHTML = "";
+    };
+  
+    logoutTab.appendChild(infoText);
+    logoutTab.appendChild(buttonLogout);
+  }
+  
 if (typeof(Storage) !== "undefined") {
     // Code for localStorage/sessionStorage.
     const jwt = localStorage.getItem('jwt');
@@ -328,8 +373,14 @@ if (typeof(Storage) !== "undefined") {
   document.addEventListener("htmx:afterRequest", async function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
-        const response =JSON.parse( event.detail.xhr.response)
-        
+         const response =JSON.parse( event.detail.xhr.response)
+         console.log(response)
+          if (response.detail == "Invalid username or password") {
+              showAlert(response.detail);
+              return;
+          }else{
+            showSuccessAlert("User successfully logged in!");
+          }
           const username= response.the_user;
           const job = response.his_job;
           showLoggedInState(username,job);
@@ -351,8 +402,11 @@ if (typeof(Storage) !== "undefined") {
       }
       
       if(event.detail.elt.closest("#form_send_message")){
-        
-        document.getElementById('messages').style.display = 'flex';
+        const messages=document.getElementById('messages')
+        messages.style.display = 'flex';
+        messages.style.backgroundColor = '#353839';
+        messages.style.padding = '10px';
+        messages.style.borderRadius = '10px';
         messages_ai = document.getElementsByClassName('message ai');
         for (let i = 0; i < messages_ai.length; i++) {
             const element = messages_ai[i]

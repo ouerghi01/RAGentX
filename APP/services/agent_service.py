@@ -541,7 +541,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
                 <p>{question}</p>
                 </div>
             </div>
-            <div class="message ai">
+            <div class="message ai" style="display: flex;  ">
                     <div class="message-icon">
                     <img src="/static/bot.png" alt="bot" class="bot-icon">
                     </div>

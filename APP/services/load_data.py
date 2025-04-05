@@ -26,7 +26,7 @@ class DataLoader:
             thread.start()
         for thread in threads:
             thread.join()
-        docs=semantic_spliter.split_documents(docs)
+        #docs=semantic_spliter.split_documents(docs)
         doc_ids = [str(uuid.uuid4()) for _ in docs]
         return docs, doc_ids
 
@@ -34,8 +34,6 @@ class DataLoader:
 
     def process_pdf_file(self, docs, file):
         full_path = os.path.join(self.UPLOAD_DIR, file)
-        
-
         loader = PDFPlumberLoader(full_path)
         document = loader.load()
         if document is not None:

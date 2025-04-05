@@ -23,6 +23,16 @@
       rel="stylesheet" type="text/css" />   
 </head>
 <body>
+  <div style="display: none;" id="error-alert" class="alert hidden">
+    <div class="alert-icon">❌</div>
+    <div class="alert-message" id="alert-text">Invalid username or password</div>
+    <button class="alert-close" onclick="closeAlert()">×</button>
+  </div>
+  <div style="display: none;" id="success-alert" class="alert-success hidden">
+    <div class="alert-icon">✅</div>
+    <div class="alert-message" id="success-alert-text">Operation successful</div>
+    <button class="alert-close" onclick="closeSuccessAlert()">×</button>
+  </div>
   <div class="Nav">
     <h1
       style=" position: relative; bottom: 5px; left: 0; width: fit-content; font-size: 1.0rem;align-items:flex-start; ">
@@ -72,16 +82,16 @@
 </div>
 
 
-  <div  id="messanger" style="display: none; width: 50%; position: relative; left:100px;" class="messenger">
+  <div  id="messanger" style="display: none; width: 50%; position: relative; left:100px; background-color: #d9dadd;" class="messenger">
     <header>
       <div class="logo">
         <img src="/static/bot.png" alt="bot">
       </div>
-      <h1 style="margin-left: 10px; font-size: 1.2rem;">Chat with AI</h1>
+      <h1 style="margin-left: 10px; font-size: 1.2rem; color: #ffffff;">Chat with AI</h1>
     </header>
     
     <main>
-      <div id="messages" style="display: flex; flex-direction: column; width: 100%;">
+      <div id="messages" style="display: none; flex-direction: column; width: 100%;">
         
       </div>
       
