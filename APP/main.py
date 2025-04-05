@@ -1,4 +1,5 @@
 import ctypes
+from fastapi.responses import HTMLResponse, JSONResponse
 from google import genai
 
 import uvicorn
@@ -9,7 +10,7 @@ import string
 import pandas as pd 
 from services.Crawler import main_crawler
 load_dotenv()  # take environment variables from .env.
-from fastapi import FastAPI,Request,Form, WebSocket 
+from fastapi import FastAPI,Request,Form, WebSocket, WebSocketDisconnect 
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -37,24 +38,60 @@ class PredictNextWord:
           if "question" not in df.columns:
                 raise ValueError("Column 'question' not found in CSV!")
           questions = df["question"].dropna().tolist()
-          data = [word.translate(translator).lower() for sentence in questions for word in sentence.split() if word not in string.punctuation]
-          tokens = (ctypes.c_char_p * len(data))(*(word.encode("utf-8") for word in data))
-          self.treeServ= TrieService(tokens=tokens)
+          answers= df["response"].dropna().tolist()
+          if not questions:
+                raise ValueError("No questions found in CSV!")
+          explanations = df["explanation"].dropna().tolist()
+          if not explanations:
+                raise ValueError("No explanations found in CSV!")
+          data_q = [word.translate(translator).lower() for sentence in questions for word in sentence.split() if word not in string.punctuation]
+          data_answer = [word.translate(translator).lower() for sentence in answers for word in sentence.split() if word not in string.punctuation]
+          data_ex = [word.translate(translator).lower() for sentence in explanations for word in sentence.split() if word not in string.punctuation]
+          all_data = data_q + data_answer + data_ex
+          tokens_all = (ctypes.c_char_p * len(all_data))(*(word.encode("utf-8") for word in all_data))
+          self.treeServ= TrieService(tokens=tokens_all)
           self.llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
      async def predict_next_word(self,websocket: WebSocket):
         await websocket.accept()
-        while True:
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if data in self.cache:
+                    await websocket.send_text(f" {self.cache[data]}")
+                else:
+                    suggestions = self.retrieve_suggestions(data)
+                    completion = self.llm.send_message(self.prompt.format(sentence=data,suggestions=suggestions)).text
+                    self.cache[data]=completion
+                    await websocket.send_text(f" {completion}")
+        except WebSocketDisconnect:
+            print("Client disconnected")
 
-            data = await websocket.receive_text()
-            if data in self.cache:
-                await websocket.send_text(f" {self.cache[data]}")
-            else:
-                token_last_word = data.split()[-1].lower()
-
-                suggestions = self.treeServ.autocomplete(token_last_word)
-                completion = self.llm.send_message(self.prompt.format(sentence=data,suggestions=suggestions)).text
-                self.cache[data]=completion
-                await websocket.send_text(f" {completion}")
+     def retrieve_suggestions(self, data):
+         ll=[]
+         for i in range(0,len(data)):
+             for j in range(i+1,len(data)):
+                 if data[i:j] not in ll:
+                     ll.append(data[i:j])
+         suggestions=[]
+         for term in ll :
+             term=term.translate(str.maketrans('', '', string.punctuation))
+             term = term.lower().split(" ")
+             term = [word for word in term if word not in string.punctuation]
+             if(len(term) > 1):
+                  for i in range(len(term)):
+                     if term[i] not in string.punctuation:
+                         term[i]=term[i].translate(str.maketrans('', '', string.punctuation))
+                         suggestion = self.treeServ.autocomplete(term[i])
+                         suggestions.extend(suggestion)
+             else :
+                 term = "".join(term)
+                 term = term.strip()
+                 if len(term) == 0:
+                     continue
+                 suggestion = self.treeServ.autocomplete(term)
+                 suggestions.extend(suggestion)
+         suggestions = list(set(suggestions))
+         return suggestions[0:20]
 class FastApp :
     """FastAPI Application wrapper for RAG-based chatbot implementation.
     This class sets up a FastAPI application with CORS middleware, routes, and event handlers
@@ -104,6 +141,8 @@ class FastApp :
         self.app.add_api_route("/uploads/", self.upload_file, methods=["POST"])
         self.app.add_api_route("/logout/",self.auth_service.logout,methods=["POST"])
         self.app.add_api_route("/verify/",self.verify_jwt,methods=["POST"])
+        self.app.add_api_route("/create_session/",self.create_session,methods=["POST"])
+        self.app.add_api_route("/get_sessions/",self.get_sessions,methods=["GET"])
         #self.app.add_middleware(self.auth_service.verify_token)
         self.app.add_websocket_route("/ws", self.agent_word_predictor.predict_next_word)
     
@@ -168,8 +207,8 @@ class FastApp :
         current_user=await self.auth_service.get_current_user(jwt)
         if( current_user is None):
                 raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
-
-        html_answer= self.agent.answer_question(question,request,self.session_id)
+        suggestions=self.agent_word_predictor.retrieve_suggestions(question)
+        html_answer= self.agent.answer_question(question,request,self.session_id,suggestions)
         return html_answer
     
     def shutdown_event(self):
@@ -187,9 +226,29 @@ class FastApp :
         if( current_user is None):
                 self.agent.chain=None
         else:
-             
             self.agent.chain=self.agent.retrieval_chain(current_user)
         return self.templates.TemplateResponse("index.html", {"request": request})
+    async def get_conversation_history(self,request:Request,session_id:str):
+         await self.validate_auth_token(request)
+         return self.cassandra_intra.get_chat_history(session_id)
+
+    async def validate_auth_token(self, request):
+        jwt=request.cookies.get("auth_token")
+        current_user=await self.auth_service.get_current_user(jwt)
+        if( current_user is None):
+                   raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
+    async def create_session(self):
+         self.session_id=self.cassandra_intra.create_room_session() # uuid type return 
+         return JSONResponse(content=self.session_id )
+    async def get_sessions(self,request:Request):
+         await self.validate_auth_token(request)
+         sessions= self.cassandra_intra.get_sessions()
+         if not sessions:
+                raise HTTPException(status_code=404, detail="No sessions found.")
+         return HTMLResponse(
+             content=self.templates.get_template("sessions.html").render(sessions=sessions),
+             status_code=200
+         )
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=8000)
 

@@ -394,9 +394,11 @@ Return **only** the improved HTML. Do not include explanations or additional tex
         name=user.email
         job_user=user.his_job
         part_prompt = f"""
-        You are a helpful assistant, providing support to the user based on their job.  
-        User Email: {name}  
-        Job: {job_user}  
+        You are a professional assistant providing expert guidance tailored to the user's role.
+        Focus solely on directly answering the user's question without additional tasks.
+        
+        User: {name}
+        Role: {job_user}
         """
         self.prompt = part_prompt + """
      
@@ -461,7 +463,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
 
 
     
-    def answer_question(self,question:str,request,session_id):
+    def answer_question(self,question:str,request,session_id,suggestions=None):
         """
         Process a user question and return an answer using either cached responses or generating a new one.
 
@@ -491,7 +493,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
         if exist_answer is not None:
             return self.generate_message_html(question, exist_answer)
         else:
-            question_enhanced= question 
+            question_enhanced= question + "suggestions:words u may need to use "+"\n".join(suggestions)
             final_answer=None
 
             try:
@@ -500,6 +502,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
                 if context_memory:
                     context_memory = "\n".join([msg.content for msg in context_memory])
                     context = f"{context}\n{context_memory}"
+                
                 final_answer = self.chain.invoke(question_enhanced)
                 PROMPT = """
                 Generate CSS from the given HTML.
@@ -524,7 +527,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
-
+           
             self.cassandraInterface.insert_answer(session_id,question,final_answer)
             reponse= self.generate_message_html(question, final_answer)
          
@@ -532,15 +535,6 @@ Return **only** the improved HTML. Do not include explanations or additional tex
 
     def generate_message_html(self, question, final_answer):
         message_html = f"""
-            <div  class="message user">
-                <input type="hidden" id="partition_id" name="partition_id" value="{uuid.uuid1()}">
-                <div class="message-icon">
-                <img src="/static/icons8-user.svg" alt="bot" class="bot-icon">
-                </div>
-                <div class="message-content">
-                <p>{question}</p>
-                </div>
-            </div>
             <div class="message ai" style="display: flex;  ">
                     <div class="message-icon">
                     <img src="/static/bot.png" alt="bot" class="bot-icon">
@@ -548,12 +542,9 @@ Return **only** the improved HTML. Do not include explanations or additional tex
                     <div id="ai_answer" class="message-content">
                     {final_answer}
                     <p class="error-para"></p>
-
                     <button class="btn" id="convertBtn">
                        <i class="fa-solid fa-volume-high"></i>
-
-            </button>
-
+                    </button>
                     </div>
              </div>
             """

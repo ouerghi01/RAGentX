@@ -1,11 +1,32 @@
 
+from collections import defaultdict
 from cassandra.cluster import Cluster
 import cassio
 import uuid
 from dotenv import load_dotenv
-import os 
+import os
+
+from google import genai
+from datetime import datetime, timedelta
 load_dotenv()  # take environment variables from .env.
 from datetime import datetime
+def categorize_timestamp(ts):
+    if(ts is None):
+        return None
+    now = datetime.now()
+    today = now.date()
+    session_date = ts.date()  # Assuming ts is a datetime object
+
+    if session_date == today:
+        return "Today"
+    elif session_date == today - timedelta(days=1):
+        return "Yesterday"
+    elif session_date >= today - timedelta(days=7):
+        return "Last 7 Days"
+    elif session_date >= today - timedelta(days=30):
+        return "Last 30 Days"
+    else:
+        return session_date.strftime("%B %Y")  # e.g., "February 2025"
 class CassandraManager:
     """A class to handle interactions with a Cassandra database.
     This class provides an interface for managing connections, tables, and operations
@@ -31,7 +52,7 @@ class CassandraManager:
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
         self.KEYSPACE:str=os.getenv("KEYSPACE")
         self.session=self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
-    
+        #self.create_database_tables()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -82,10 +103,15 @@ class CassandraManager:
         WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': 3}};
         """
         self.session.execute(create_key_space)
-        self.create_database_tables()
         return self.session
 
     def create_database_tables(self):
+        #remove all tables
+        query=f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{self.KEYSPACE}'"
+        rows=self.session.execute(query)
+        for row in rows:
+            query=f"DROP TABLE {self.KEYSPACE}.{row.table_name}"
+            self.session.execute(query)
         create_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.vectores (
             partition_id UUID PRIMARY KEY,
@@ -105,15 +131,19 @@ class CassandraManager:
         """
         self.session.execute(create_user_table)
         create_session_table = f"""
-        CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.session_table (
-            session_id UUID PRIMARY KEY,
-        );
-        """
+            CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.session_table (
+                session_id UUID,
+                title TEXT,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (session_id)
+            );
+            """
         self.session.execute(create_session_table)
         session_response_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.response_session (
             partition_id UUID PRIMARY KEY,
             session_id UUID,
+            
             table_response_id UUID,
         );
         """
@@ -170,7 +200,7 @@ class CassandraManager:
         Returns:
             None
         """
-        self.session.execute(f"TRUNCATE {self.KEYSPACE}.vectores_new")
+        #self.session.execute(f"TRUNCATE {self.KEYSPACE}.vectores_new")
         self.session.execute(f"TRUNCATE {self.KEYSPACE}.response_table")
         self.session.execute(f"TRUNCATE {self.KEYSPACE}.response_session")
         self.session.execute(f"TRUNCATE {self.KEYSPACE}.session_table")
@@ -224,6 +254,29 @@ class CassandraManager:
         result_set = self.session.execute(find_reponse_query, (question,))
         response_row = result_set.one() if result_set else None
         return response_row
+    def get_sessions(self):
+        all_sessions = self.session.execute(f"SELECT session_id, title, timestamp FROM {self.KEYSPACE}.session_table  ALLOW FILTERING")
+        all_sessions = {row.session_id: {"title":row.title,"timestamp":row.timestamp} for row in all_sessions}
+        grouped_sessions = defaultdict(list)
+
+        for key,row in all_sessions.items():  # Assuming all_sessions is a list of session objects
+            category = categorize_timestamp(row['timestamp'])
+            if category is None:
+                continue
+            grouped_sessions[category].append({
+                "session_id": key,
+                "title": row['title'],
+                "timestamp": row['timestamp']
+            })
+        sort_order = ["Today", "Yesterday", "Last 7 Days", "Last 30 Days"]
+        sorted_grouped = {}
+        for key in sort_order:
+            if key in grouped_sessions:
+                sorted_grouped[key] = grouped_sessions[key]
+        for key in grouped_sessions:
+            if key not in sort_order:
+                sorted_grouped[key] = grouped_sessions[key]
+        return sorted_grouped
     def get_chat_history(self, session_id):
         all_ids = self.session.execute(f"SELECT partition_id FROM {self.KEYSPACE}.response_session WHERE session_id=%s ALLOW FILTERING", (session_id,))
         all_ids = [row.partition_id for row in all_ids]
@@ -233,21 +286,28 @@ class CassandraManager:
             result_set.extend(self.session.execute(query_sql, (id,)))
         chat_history = []
         for row in result_set:
-            chat_history.append(("human", row.question))
-            chat_history.append(("assistant", row.answer))
-        if len(chat_history) == 0:
-            chat_history.append(("human", ""))
-            chat_history.append(("assistant", ""))
+            chat_history.append((row.question, row.answer))
         return chat_history
     def insert_answer(self,session_id,question,final_answer):
+       
         partition_id = uuid.uuid1()
         now=datetime.now()
         self.session.execute(
         f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
         (partition_id,question, final_answer,now)
         )
+        get_session=f"SELECT * FROM {self.KEYSPACE}.session_table WHERE session_id=%s ALLOW FILTERING"
+        result_set = self.session.execute(get_session, (session_id,))
+        session_row = result_set.one() if result_set else None
+        if session_row.title is None:
+            llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
+            prompt = f"Generate a short and engaging chat title based on this question: '{question}'. Respond with a maximum of 3 lowercase words, separated by commas, without any extra symbols or formatting."
+            title=llm.send_message(prompt).text
+            query=f"UPDATE {self.KEYSPACE}.session_table SET title=%s, timestamp=%s WHERE session_id=%s"
+            now = datetime.now()
+            self.session.execute(query,(title, now, session_id)) 
+
         query_session_response_related=f"""INSERT INTO {self.KEYSPACE}.response_session (session_id,partition_id) VALUES (%s,%s)"""
         self.session.execute(query_session_response_related,(session_id,partition_id))
-        print("answer inserted")
     
      

@@ -209,6 +209,8 @@ function showLoggedInState(username, job) {
     const registerTab = document.getElementById('register-tab');
     const login = document.getElementById('login');
     const logoutTab = document.getElementById('logout-tab');
+    const nav_right= document.getElementById('nav_right');
+
   
     // Show/hide elements
     messanger.style.display = 'flex';
@@ -216,6 +218,7 @@ function showLoggedInState(username, job) {
     registerTab.style.display = 'none';
     login.style.display = 'none';
     logoutTab.style.display = 'flex';
+    nav_right.style.display = 'flex';
   
     // Clean previous content
     logoutTab.innerHTML = "";
@@ -262,7 +265,10 @@ function showLoggedInState(username, job) {
       logoutTab.style.display = 'none';
       document.getElementById('uploadpdf').style.display = 'none';
       document.getElementById('questions').style.display = 'none';
+      document.getElementById('nav_right').style.display= 'none';
       logoutTab.innerHTML = "";
+      localStorage.clear()
+      clearMessages();
     };
   
     logoutTab.appendChild(infoText);
@@ -285,13 +291,14 @@ if (typeof(Storage) !== "undefined") {
         .catch((error) => {
             console.error("Error:", error);
         });
-    console.log(verified_jwt);
+    
     if(verified_jwt && jwt){
       document.getElementById('messanger').style.display = 'flex';
       document.getElementById('login-tab').style.display = 'none';
       document.getElementById('register-tab').style.display = 'none';
       document.getElementById('login').style.display = 'none';
       document.getElementById('logout-tab').style.display = 'flex';
+      document.getElementById('nav_right').style.display = 'flex';
       const username= localStorage.getItem('username');
         const job = localStorage.getItem('his_job');
       showLoggedInState(username,job);
@@ -302,9 +309,12 @@ if (typeof(Storage) !== "undefined") {
         document.getElementById('uploadpdf').style.display='none';
         document.getElementById('messanger').style.display = 'none';
         document.getElementById('logout-tab').style.display = 'none';
+        clearMessages()
+        const nav_right= document.getElementById('nav_right');
+        nav_right.style.display='none';
     }
   }   
-  function switchTab(tab) {
+function switchTab(tab) {
       document.getElementById('login-tab').classList.remove('active');
       document.getElementById('register-tab').classList.remove('active');
       document.getElementById('login').classList.remove('active');
@@ -321,13 +331,124 @@ if (typeof(Storage) !== "undefined") {
           
       }
     }
-    document.addEventListener('DOMContentLoaded', () => {
+    
+    
+    
+    
+function cacheMessages(messagesContainer) {
+        localStorage.setItem("chat_messages", messagesContainer.innerHTML);
+      }
+    
+document.addEventListener('DOMContentLoaded', async () => {
         const input = document.getElementById('input');
         input.addEventListener('input', () => {
           const button = input.nextElementSibling;
           button.disabled = !input.value;
         });
+        const messagesContainer = document.getElementById("messages");
+        const cached = localStorage.getItem("chat_messages");
+        if (cached) {
+        messagesContainer.innerHTML = cached;
+        messagesContainer.style.display = "flex"; // show the messages
+        messagesContainer.style.backgroundColor="rgb(53, 56, 57)"
+        await generateSpeechFromAI();
+        //document.getElementById("messanger").style.display = "block"; // show the messanger
+        }
       });
+async function generateSpeechFromAI() {
+    container_ai = document.getElementsByClassName('message ai');
+    console.log(container_ai);
+    for (let i = 0; i < container_ai.length; i++) {
+        const element = container_ai[i];
+        let ai_answer = element.querySelector("#ai_answer");
+        if (ai_answer) {
+            const convertBtn = element.querySelector("#convertBtn");
+
+            let enteredText = removeTags(ai_answer.textContent);
+
+            const apiKey = "AIzaSyD59T_Pyw4rzPrU90s_64Ctp2kOWBfKH9Q";
+            const userInput = `Convert the given text into natural-sounding speech : ${enteredText}`;
+            const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: userInput }] }] })
+            });
+            const data = await res.json();
+            enteredText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+            enteredText = enteredText.replace(/\*+/g, '');
+            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+            let isSpeaking = false; // Track speaking state
+            convertBtn.addEventListener('click', function () {
+                const speechSynth = window.speechSynthesis;
+
+                const error = element.querySelector('.error-para');
+                console.log(enteredText);
+                if (!enteredText.trim().length) {
+                    error.textContent = `Nothing to Convert! Enter text in the text area.`;
+                    return;
+                }
+                // If already speaking, stop it
+                if (isSpeaking) {
+                    speechSynth.cancel();
+                    isSpeaking = false;
+                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>'; // Reset button
+                    return;
+                }
+                error.textContent = ""; // Clear error message
+
+
+
+                // Wait for voices to load before speaking
+                function speakText(text) {
+                    const sentences = text.split(/(?<=[.!?])\s+/); // Split text into sentences
+                    let index = 0;
+
+                    function speakNextSentence() {
+                        if (index < sentences.length) {
+                            const newUtter = new SpeechSynthesisUtterance(sentences[index]);
+
+                            // Select a voice (English by default)
+                            const voices = speechSynth.getVoices();
+                            newUtter.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+                            newUtter.rate = 1.0; // Normal speed
+
+                            newUtter.onend = () => {
+                                index++;
+                                speakNextSentence(); // Speak the next part
+                            };
+                            speechSynth.speak(newUtter);
+                        } else {
+                            // Reset button when speech is fully done
+                            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
+                        }
+                    }
+
+                    // Cancel any existing speech before starting new
+                    isSpeaking = true;
+                    speechSynth.cancel();
+
+                    // Change button to indicate speaking
+                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
+
+                    speakNextSentence();
+                }
+
+                // Wait for voices to load before starting
+                if (speechSynth.getVoices().length === 0) {
+                    window.speechSynthesis.onvoiceschanged = function () {
+                        speakText(enteredText);
+                    };
+                } else {
+                    speakText(enteredText);
+                }
+            });
+            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+        }
+
+    }
+}
+
       function removeTags(str) {
         
         if ((str === null) || (str === ''))
@@ -370,6 +491,17 @@ if (typeof(Storage) !== "undefined") {
         
 
     }
+    document.body.addEventListener("htmx:afterSwap", async  function(evt) {
+        const messages=document.getElementById('messages')
+        if (evt.detail.target.id === "messages") {
+          alert("Message sent successfully!");
+          messages.style.display = "flex";
+          document.getElementById("input").textContent="";
+          cacheMessages(messages);
+        
+
+        }
+      });
   document.addEventListener("htmx:afterRequest", async function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
@@ -398,7 +530,7 @@ if (typeof(Storage) !== "undefined") {
       // Check if the request was for registration
       if (event.detail.elt.closest("#register")) {
           console.log("Register request completed!");
-          alert("Registration Successful!");
+          //alert("Registration Successful!");
       }
       
       if(event.detail.elt.closest("#form_send_message")){
@@ -407,99 +539,15 @@ if (typeof(Storage) !== "undefined") {
         messages.style.backgroundColor = '#353839';
         messages.style.padding = '10px';
         messages.style.borderRadius = '10px';
-        messages_ai = document.getElementsByClassName('message ai');
-        for (let i = 0; i < messages_ai.length; i++) {
-            const element = messages_ai[i]
-            let ai_answer = element.querySelector("#ai_answer");
-            if (ai_answer) {
-                const convertBtn = element.querySelector("#convertBtn");
+        await generateSpeechFromAI();
 
-                let enteredText = removeTags(ai_answer.textContent);
-               
-                const apiKey="AIzaSyD59T_Pyw4rzPrU90s_64Ctp2kOWBfKH9Q"
-                const userInput = `Convert the given text into natural-sounding speech : ${enteredText}`;
-                const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: userInput }] }] })
-                });
-                const data = await res.json();
-                enteredText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
-                enteredText=enteredText.replace(/\*+/g, '');
-                convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
-                let isSpeaking = false; // Track speaking state
-                convertBtn.addEventListener('click', function () {
-                const speechSynth = window.speechSynthesis;
-                       
-                const error = element.querySelector('.error-para');
-                console.log(enteredText)
-                if (!enteredText.trim().length) {
-                    error.textContent = `Nothing to Convert! Enter text in the text area.`;
-                    return;
-                }
-                // If already speaking, stop it
-                if (isSpeaking) {
-                    speechSynth.cancel();
-                    isSpeaking = false;
-                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>'; // Reset button
-                    return;
-                }
-                error.textContent = ""; // Clear error message
-            
-                // Wait for voices to load before speaking
-                function speakText(text) {
-                    const sentences = text.split(/(?<=[.!?])\s+/); // Split text into sentences
-                    let index = 0;
-            
-                    function speakNextSentence() {
-                        if (index < sentences.length) {
-                            const newUtter = new SpeechSynthesisUtterance(sentences[index]);
-                            
-                            // Select a voice (English by default)
-                            const voices = speechSynth.getVoices();
-                            newUtter.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-            
-                            newUtter.rate = 1.0; // Normal speed
-            
-                            newUtter.onend = () => {
-                                index++;
-                                speakNextSentence(); // Speak the next part
-                            };
-                            speechSynth.speak(newUtter);
-                        } else {
-                            // Reset button when speech is fully done
-                            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
-                        }
-                    }
-            
-                    // Cancel any existing speech before starting new
-                    isSpeaking = true;
-                    speechSynth.cancel();
-            
-                    // Change button to indicate speaking
-                    convertBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i>';
-            
-                    speakNextSentence();
-                }
-            
-                // Wait for voices to load before starting
-                if (speechSynth.getVoices().length === 0) {
-                    window.speechSynthesis.onvoiceschanged = function () {
-                        speakText(enteredText);
-                    };
-                } else {
-                    speakText(enteredText);
-                }
-            });
-            convertBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
-            }
-        
-        }
        
         
         
 
       }
+
+      
     }
 );
   var ws = new WebSocket("ws://localhost:8000/ws");
@@ -537,4 +585,23 @@ if (typeof(Storage) !== "undefined") {
       }
       ws.send(input.value)
       
+  }
+  function clearMessages() {
+    localStorage.removeItem("chat_messages");
+  }
+  function onClick_input(event) {
+    const text_input = $("#input").val();
+    const messages = document.getElementById("messages");
+    messages.style.display='flex'
+    messages.style.backgroundColor+'rgb(53, 56, 57)'
+    const html_content = `<div class="message user" style="display: flex; flex-direction: row;">
+                    <div class="message-icon">
+                        <img src="/static/icons8-user.svg" alt="bot" class="bot-icon">
+                    </div>
+                    <div class="message-content">
+                        <p style="color:rgb(50, 47, 47); font-size: 15px; line-height: 1.5; margin: 0; padding: 10px;  border-radius: 10px;">${text_input}</p>
+                    </div>
+                </div>`;
+    messages.innerHTML += html_content;
+    $("#input").val("");
   }

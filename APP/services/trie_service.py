@@ -17,13 +17,14 @@ class TrieService:
         self.lib.freeWordList.restype = None
         self.root = self.lib.allocate_node()
         self.filename = filename
-        if(tokens):
-            self.insert(tokens)
-        # Load trie data if exists
         if os.path.exists(self.filename):
             print(f"Loading Trie from {self.filename}")
             self.lib.loadTrieFromFile(ctypes.byref(self.root), self.filename.encode("utf-8"))
-       
+        else:
+            if(tokens):
+                 self.insert(tokens)
+        # Load trie data if exists
+        
     def insert(self, tokens: list[str]):
         self.lib.InsertMany(ctypes.byref(self.root), tokens, len(tokens))
         self.save()

@@ -1,0 +1,116 @@
+<div class="right-nav">
+    <div>
+        <div style="display: flex; flex-direction: column; margin-top: 10px;">
+            <button id="start-new-conversation" style="width: fit-content; background-color: #4c6f9e; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">
+                Start New Conversation
+            </button>
+        </div>
+    </div>
+    <ul class="session-list">
+        {% for category, sessions in sessions.items() %}
+            <li class="session-category" style="font-weight: bold; color: white; margin-top: 10px;">
+                {{ category }}
+            </li>
+            {% for session in sessions %}
+                <li class="session-item" data-session-id="{{ session.session_id }}" style="color: azure; margin-left: 10px;">
+                    {{ session.title }}
+                </li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+    <style>
+        /* General container for the session list */
+.right-nav {
+    background-color: #1f1f1f; /* Dark background for contrast */
+    padding: 20px;
+    border-radius: 10px;
+    width: 250px; /* Adjust based on your layout */
+    overflow-y: auto; /* Allow scrolling if list is too long */
+}
+
+/* Session list */
+.session-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Session category header */
+.session-category {
+    font-size: 16px;
+    font-weight: bold;
+    color: #f0f0f0; /* Light color for visibility */
+    text-transform: uppercase; /* For a bit of emphasis */
+    margin-top: 15px;
+    margin-bottom: 8px;
+}
+
+/* Session item */
+.session-item {
+    font-size: 14px;
+    color: #dcdcdc; /* Light grey text color */
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover effect for session items */
+.session-item:hover {
+    background-color: #4c6f9e; /* Highlight with a cool blue */
+    color: white; /* Change text color to white on hover */
+    cursor: pointer; /* Show pointer cursor to indicate it's clickable */
+}
+
+/* Active session (highlighted) */
+.session-item.active {
+    background-color: #ff7043; /* Orange highlight for active session */
+    color: white;
+}
+
+/* Small spacing between items to improve readability */
+.session-item + .session-item {
+    margin-top: 8px;
+}
+
+/* Responsive handling for smaller screens */
+@media (max-width: 768px) {
+    .right-nav {
+        width: 100%;
+        padding: 10px;
+    }
+}
+
+    </style>
+    <script>
+        const start_new_conversation = document.getElementById("start-new-conversation");
+        const messages=document.getElementById("messages");
+        
+        start_new_conversation.addEventListener("click", function() {
+
+            messages.innerHTML = "";
+            messages.style.display = "none";
+            
+            const sessionItems = document.querySelectorAll(".session-item");
+            sessionItems.forEach(item => {
+                item.classList.remove("active");
+            });
+            start_new_conversation.classList.add("active");
+        });
+        async function getData() {
+            const url = "/create_session/";
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                throw new Error(`Response status: ${response.status}`);
+                }
+                const json = await response.json();
+                console.log(json);
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+
+    </script>
+</div>
