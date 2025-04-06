@@ -1,4 +1,4 @@
-<div class="right-nav">
+<div  class="right-nav">
     <div>
         <div style="display: flex; flex-direction: column; margin-top: 10px;">
             <button id="start-new-conversation" style="width: fit-content; background-color: #4c6f9e; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">
@@ -7,16 +7,24 @@
         </div>
     </div>
     <ul class="session-list">
-        {% for category, sessions in sessions.items() %}
-            <li class="session-category" style="font-weight: bold; color: white; margin-top: 10px;">
-                {{ category }}
-            </li>
-            {% for session in sessions %}
-                <li class="session-item" data-session-id="{{ session.session_id }}" style="color: azure; margin-left: 10px;">
-                    {{ session.title }}
+        {% if sessions.items()|length > 0 %}
+            {% for category, sessions in sessions.items() %}
+                <li class="session-category" style="font-weight: bold; color: white; margin-top: 10px;">
+                    {{ category }}
                 </li>
+                {% for session in sessions %}
+                    <li 
+                    onclick="load_conversation('{{ session.session_id }}')"
+                    class="session-item" data-session-id="{{ session.session_id }}" style="color: azure; margin-left: 10px;">
+                        {{ session.title }}
+                    </li>
+                {% endfor %}
             {% endfor %}
-        {% endfor %}
+        {% else %}
+            <li class="session-category" style="font-weight: bold; color: white; margin-top: 10px;">
+                No sessions available
+            </li>
+        {% endif %}
     </ul>
     <style>
         /* General container for the session list */
@@ -84,33 +92,69 @@
 
     </style>
     <script>
-        const start_new_conversation = document.getElementById("start-new-conversation");
-        const messages=document.getElementById("messages");
         
-        start_new_conversation.addEventListener("click", function() {
+        
 
+
+
+
+async function load_conversation(session_id) {
+        const url = `/get_conversation_history/${session_id}/`;
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error(`Response status: ${response.status}`);
+                return response.json();
+            })
+            .then(async data => {
+                const response = data; // this list of older conversations
+                const messages = document.getElementById("messages");
+                clearMessages();
+                messages.innerHTML = ""; // Clear previous messages
+                messages.style.display = "flex"; // Show the messages container
+                response.forEach(item => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.innerHTML = item;
+                    messages.appendChild(messageDiv);
+                });
+                await generateSpeechFromAI(); // Call the function to generate speech
+                cacheMessages(messages);
+            })
+            .catch(error => console.error(error.message));
+         }
+        (() => {
+    const nav_right = document.getElementById("nav_right");
+    const start_new_conversation = document.getElementById("start-new-conversation");
+    const messages = document.getElementById("messages");
+
+    
+
+    async function create_session() {
+        const url = "/create_session/";
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Response status: ${response.status}`);
+            const json = await response.json();
+            console.log(json);
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    if (start_new_conversation) {
+        start_new_conversation.addEventListener("click", async function() {
+            await create_session();
             messages.innerHTML = "";
             messages.style.display = "none";
-            
+
             const sessionItems = document.querySelectorAll(".session-item");
-            sessionItems.forEach(item => {
-                item.classList.remove("active");
-            });
+            sessionItems.forEach(item => item.classList.remove("active"));
+
             start_new_conversation.classList.add("active");
         });
-        async function getData() {
-            const url = "/create_session/";
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                throw new Error(`Response status: ${response.status}`);
-                }
-                const json = await response.json();
-                console.log(json);
-            } catch (error) {
-                console.error(error.message);
-            }
-        }
+    }
+})();
+
 
     </script>
+    <script src="/static/script.js"></script>
 </div>

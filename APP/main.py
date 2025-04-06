@@ -1,8 +1,12 @@
 import ctypes
+from uuid import UUID
+import uuid
 from fastapi.responses import HTMLResponse, JSONResponse
 from google import genai
 
+from sse_starlette import EventSourceResponse
 import uvicorn
+from services.response_html import generate_answer_html
 from services.trie_service import TrieService
 from services.agent_service import AgentInterface
 from dotenv import load_dotenv
@@ -141,8 +145,9 @@ class FastApp :
         self.app.add_api_route("/uploads/", self.upload_file, methods=["POST"])
         self.app.add_api_route("/logout/",self.auth_service.logout,methods=["POST"])
         self.app.add_api_route("/verify/",self.verify_jwt,methods=["POST"])
-        self.app.add_api_route("/create_session/",self.create_session,methods=["POST"])
-        self.app.add_api_route("/get_sessions/",self.get_sessions,methods=["GET"])
+        self.app.add_api_route("/create_session/",self.create_session,methods=["GET"])
+        self.app.add_api_route("/get_sessions",self.get_sessions,methods=["GET"])
+        self.app.add_api_route("/get_conversation_history/{session_id}",self.get_conversation_history,methods=["GET"])
         #self.app.add_middleware(self.auth_service.verify_token)
         self.app.add_websocket_route("/ws", self.agent_word_predictor.predict_next_word)
     
@@ -208,7 +213,7 @@ class FastApp :
         if( current_user is None):
                 raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
         suggestions=self.agent_word_predictor.retrieve_suggestions(question)
-        html_answer= self.agent.answer_question(question,request,self.session_id,suggestions)
+        html_answer= self.agent.answer_question(question,current_user,request,self.session_id,suggestions)
         return html_answer
     
     def shutdown_event(self):
@@ -228,27 +233,58 @@ class FastApp :
         else:
             self.agent.chain=self.agent.retrieval_chain(current_user)
         return self.templates.TemplateResponse("index.html", {"request": request})
-    async def get_conversation_history(self,request:Request,session_id:str):
-         await self.validate_auth_token(request)
-         return self.cassandra_intra.get_chat_history(session_id)
-
+    
     async def validate_auth_token(self, request):
         jwt=request.cookies.get("auth_token")
         current_user=await self.auth_service.get_current_user(jwt)
         if( current_user is None):
                    raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
+        return current_user
+    async def get_conversation_history(self,request:Request,session_id:str):
+         
+         await self.validate_auth_token(request)
+         self.session_id=uuid.UUID(session_id)
+         answers_hist= self.cassandra_intra.get_chat_history(session_id)
+         answers_list_html= []
+         for hist in answers_hist:
+                question=hist[0]
+                answer=hist[1]
+                answers_list_html.append(generate_answer_html(question,answer,True))
+         
+         return JSONResponse(content=answers_list_html)
+    
     async def create_session(self):
          self.session_id=self.cassandra_intra.create_room_session() # uuid type return 
-         return JSONResponse(content=self.session_id )
-    async def get_sessions(self,request:Request):
-         await self.validate_auth_token(request)
-         sessions= self.cassandra_intra.get_sessions()
-         if not sessions:
-                raise HTTPException(status_code=404, detail="No sessions found.")
-         return HTMLResponse(
-             content=self.templates.get_template("sessions.html").render(sessions=sessions),
-             status_code=200
-         )
+         return JSONResponse(content=str(self.session_id))
+    async def get_sessions(self, request: Request):
+        async def event_generator():
+            while True:
+                if await request.is_disconnected():
+                    break
+
+                user = await self.validate_auth_token(request)
+
+                if not user:
+                    yield {
+                        "event": "message",
+                        "data": "<div>⚠️ Not authenticated</div>"
+                    }
+                    break
+
+                sessions = self.cassandra_intra.get_sessions(user)
+
+                # Render the HTML snippet from your Jinja2 template
+                html_content = self.templates.get_template("sessions.html").render(sessions=sessions)
+
+                # Yield the HTML as a plain string
+                yield {
+                    "event": "message",
+                    "data": html_content
+                }
+
+                await asyncio.sleep(5)
+
+        return EventSourceResponse(event_generator())
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=8000)
 

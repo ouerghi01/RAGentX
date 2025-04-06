@@ -8,6 +8,9 @@ import os
 
 from google import genai
 from datetime import datetime, timedelta
+
+from services import User
+
 load_dotenv()  # take environment variables from .env.
 from datetime import datetime
 def categorize_timestamp(ts):
@@ -135,6 +138,7 @@ class CassandraManager:
                 session_id UUID,
                 title TEXT,
                 timestamp TIMESTAMP,
+                user_id UUID,
                 PRIMARY KEY (session_id)
             );
             """
@@ -244,7 +248,6 @@ class CassandraManager:
         session_id = uuid.uuid4()
         create_session_row=f"""INSERT INTO {self.KEYSPACE}.session_table (session_id) VALUES (%s)"""
         self.session.execute(create_session_row,(session_id,))
-        print("session created")
         return session_id
     def evaluate_reponse(self,partition_id,evaluation):
         query=f"UPDATE {self.KEYSPACE}.response_table SET evaluation={evaluation} WHERE partition_id={partition_id}"
@@ -254,11 +257,13 @@ class CassandraManager:
         result_set = self.session.execute(find_reponse_query, (question,))
         response_row = result_set.one() if result_set else None
         return response_row
-    def get_sessions(self):
-        all_sessions = self.session.execute(f"SELECT session_id, title, timestamp FROM {self.KEYSPACE}.session_table  ALLOW FILTERING")
+    def get_sessions(self,user):
+        user_id=self.retrieve_user_id(user)
+        all_sessions = self.session.execute(f"SELECT session_id, title, timestamp FROM {self.KEYSPACE}.session_table   WHERE user_id=%s ALLOW FILTERING", (user_id,))
+        if not all_sessions:
+            return {}
         all_sessions = {row.session_id: {"title":row.title,"timestamp":row.timestamp} for row in all_sessions}
         grouped_sessions = defaultdict(list)
-
         for key,row in all_sessions.items():  # Assuming all_sessions is a list of session objects
             category = categorize_timestamp(row['timestamp'])
             if category is None:
@@ -278,6 +283,7 @@ class CassandraManager:
                 sorted_grouped[key] = grouped_sessions[key]
         return sorted_grouped
     def get_chat_history(self, session_id):
+        session_id= uuid.UUID(session_id)
         all_ids = self.session.execute(f"SELECT partition_id FROM {self.KEYSPACE}.response_session WHERE session_id=%s ALLOW FILTERING", (session_id,))
         all_ids = [row.partition_id for row in all_ids]
         result_set = []
@@ -288,8 +294,8 @@ class CassandraManager:
         for row in result_set:
             chat_history.append((row.question, row.answer))
         return chat_history
-    def insert_answer(self,session_id,question,final_answer):
-       
+    def insert_answer(self,session_id,user:User,question,final_answer):
+        user_id = self.retrieve_user_id(user) 
         partition_id = uuid.uuid1()
         now=datetime.now()
         self.session.execute(
@@ -299,15 +305,23 @@ class CassandraManager:
         get_session=f"SELECT * FROM {self.KEYSPACE}.session_table WHERE session_id=%s ALLOW FILTERING"
         result_set = self.session.execute(get_session, (session_id,))
         session_row = result_set.one() if result_set else None
-        if session_row.title is None:
+        if session_row.title is None and session_row.user_id is None:
             llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
             prompt = f"Generate a short and engaging chat title based on this question: '{question}'. Respond with a maximum of 3 lowercase words, separated by commas, without any extra symbols or formatting."
             title=llm.send_message(prompt).text
-            query=f"UPDATE {self.KEYSPACE}.session_table SET title=%s, timestamp=%s WHERE session_id=%s"
+            query=f"UPDATE {self.KEYSPACE}.session_table SET title=%s, timestamp=%s,user_id=%s WHERE session_id=%s"
             now = datetime.now()
-            self.session.execute(query,(title, now, session_id)) 
+            self.session.execute(query,(title, now,user_id, session_id)) 
 
         query_session_response_related=f"""INSERT INTO {self.KEYSPACE}.response_session (session_id,partition_id) VALUES (%s,%s)"""
         self.session.execute(query_session_response_related,(session_id,partition_id))
+
+    def retrieve_user_id(self, user):
+        user_result = self.session.execute(
+            f"SELECT user_id FROM {self.KEYSPACE}.users_new WHERE username=%s ALLOW FILTERING", 
+            (user.username,)
+        ).one()
+        user_id = user_result.user_id if user_result else None
+        return user_id
     
      

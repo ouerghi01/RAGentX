@@ -603,5 +603,5 @@ async function generateSpeechFromAI() {
                     </div>
                 </div>`;
     messages.innerHTML += html_content;
-    $("#input").val("");
+    
   }

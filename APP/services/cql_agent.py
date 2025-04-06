@@ -116,9 +116,7 @@ class CQLAGENT:
         clustering_keys=self.clustering_keys,
         question=question,
         )
-        messages = [
-                HumanMessage(content=prompt),
-            ]
+        
         client=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
         completion = client.send_message(prompt).text
         completion=completion.replace("```","").replace("json","").strip()
@@ -178,5 +176,3 @@ class CQLAGENT:
         answer = self.client.send_message(prompt).text
         return answer
 #https://github.com/Hungreeee/Q-RAG/blob/main/demo/demo_notebook_squad.ipynb
-cql_agent=CQLAGENT()
-print(cql_agent.answer_data_with_cql("List all the users in database"))
