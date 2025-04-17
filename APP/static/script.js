@@ -494,9 +494,11 @@ async function generateSpeechFromAI() {
     document.body.addEventListener("htmx:afterSwap", async  function(evt) {
         const messages=document.getElementById('messages')
         if (evt.detail.target.id === "messages") {
-          alert("Message sent successfully!");
+          
           messages.style.display = "flex";
           document.getElementById("input").textContent="";
+          const response =( evt.detail.xhr.response)
+          alert(response)
           cacheMessages(messages);
         
 
@@ -539,11 +541,9 @@ async function generateSpeechFromAI() {
         messages.style.backgroundColor = '#353839';
         messages.style.padding = '10px';
         messages.style.borderRadius = '10px';
+        
         await generateSpeechFromAI();
 
-       
-        
-        
 
       }
 

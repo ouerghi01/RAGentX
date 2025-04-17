@@ -28,6 +28,7 @@ def generate_answer_html(question, final_answer,bool):
         return message_html
     else:
         message_html =  f"""
+         
             <div class="message ai" style="display: flex;  ">
                     <div class="message-icon">
                     <img src="/static/bot.png" alt="bot" class="bot-icon">
@@ -41,3 +42,4 @@ def generate_answer_html(question, final_answer,bool):
                     </div>
              </div>
             """
+        return message_html
