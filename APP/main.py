@@ -1,9 +1,11 @@
 import ctypes
+import os
 from uuid import UUID
 import uuid
 from fastapi.responses import HTMLResponse, JSONResponse
 from google import genai
-
+from langchain.agents import Tool
+import threading
 from sse_starlette import EventSourceResponse
 import uvicorn
 from services.response_html import generate_answer_html
@@ -23,6 +25,7 @@ from services.auth_service import AuthService
 from services.cassandra_service import CassandraManager
 from fastapi import  FastAPI
 import random
+from services.consumer   import PowerBIKafkaConsumer
 ##https://github.com/UpstageAI/cookbook/blob/main/Solar-Fullstack-LLM-101/10_tool_RAG.ipynb
 asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 from fastapi import Request, HTTPException
@@ -37,23 +40,23 @@ class PredictNextWord:
             
             """
           self.cache={}
-          translator = str.maketrans('', '', string.punctuation)
-          df = pd.read_csv("Data_with_explanations.csv")
-          if "question" not in df.columns:
-                raise ValueError("Column 'question' not found in CSV!")
-          questions = df["question"].dropna().tolist()
-          answers= df["response"].dropna().tolist()
-          if not questions:
-                raise ValueError("No questions found in CSV!")
-          explanations = df["explanation"].dropna().tolist()
-          if not explanations:
-                raise ValueError("No explanations found in CSV!")
-          data_q = [word.translate(translator).lower() for sentence in questions for word in sentence.split() if word not in string.punctuation]
-          data_answer = [word.translate(translator).lower() for sentence in answers for word in sentence.split() if word not in string.punctuation]
-          data_ex = [word.translate(translator).lower() for sentence in explanations for word in sentence.split() if word not in string.punctuation]
-          all_data = data_q + data_answer + data_ex
-          tokens_all = (ctypes.c_char_p * len(all_data))(*(word.encode("utf-8") for word in all_data))
-          self.treeServ= TrieService(tokens=tokens_all)
+        #   translator = str.maketrans('', '', string.punctuation)
+        #   df = pd.read_csv("Data_with_explanations.csv")
+        #   if "question" not in df.columns:
+        #         raise ValueError("Column 'question' not found in CSV!")
+        #   questions = df["question"].dropna().tolist()
+        #   answers= df["response"].dropna().tolist()
+        #   if not questions:
+        #         raise ValueError("No questions found in CSV!")
+        #   explanations = df["explanation"].dropna().tolist()
+        #   if not explanations:
+        #         raise ValueError("No explanations found in CSV!")
+        #   data_q = [word.translate(translator).lower() for sentence in questions for word in sentence.split() if word not in string.punctuation]
+        #   data_answer = [word.translate(translator).lower() for sentence in answers for word in sentence.split() if word not in string.punctuation]
+        #   data_ex = [word.translate(translator).lower() for sentence in explanations for word in sentence.split() if word not in string.punctuation]
+        #   all_data = data_q + data_answer + data_ex
+        #   tokens_all = (ctypes.c_char_p * len(all_data))(*(word.encode("utf-8") for word in all_data))
+        #   self.treeServ= TrieService(tokens=tokens_all)
           self.llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
      async def predict_next_word(self,websocket: WebSocket):
         await websocket.accept()
@@ -63,7 +66,7 @@ class PredictNextWord:
                 if data in self.cache:
                     await websocket.send_text(f" {self.cache[data]}")
                 else:
-                    suggestions = self.retrieve_suggestions(data)
+                    suggestions = []
                     completion = self.llm.send_message(self.prompt.format(sentence=data,suggestions=suggestions)).text
                     self.cache[data]=completion
                     await websocket.send_text(f" {completion}")
@@ -188,7 +191,7 @@ class FastApp :
         """
         print("Starting App ...")
         #contents,urls = await main_crawler()
-        self.agent=AgentInterface("assistant",self.cassandra_intra,name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads")
+        self.agent=AgentInterface("assistant",self.cassandra_intra,name_dir="C:/Users/aziz/RAGentX/APP/uploads")
         self.agent.compression_retriever=await self.agent.setup_ensemble_retrievers()
         self.agent.chain=None
         self.auth_service.agent=self.agent
@@ -212,7 +215,7 @@ class FastApp :
         current_user=await self.auth_service.get_current_user(jwt)
         if( current_user is None):
                 raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
-        suggestions=self.agent_word_predictor.retrieve_suggestions(question)
+        suggestions=[]
         html_answer= self.agent.answer_question(question,current_user,request,self.session_id,suggestions)
         return html_answer
     
@@ -231,7 +234,26 @@ class FastApp :
         if( current_user is None):
                 self.agent.chain=None
         else:
+            from langchain.agents import initialize_agent
+            from langchain.agents.agent_types import AgentType
             self.agent.chain=self.agent.retrieval_chain(current_user)
+            self.agent.rag_tool=Tool(
+                name="Document QA",
+                func=self.agent.chain.invoke,
+                description=(
+                    "This tool is used for answering complex questions using retrieved knowledge from documents, "
+                    "including advanced information or knowledge not found in the SQL database. "
+                    "It is ideal for handling general knowledge questions or queries requiring in-depth knowledge retrieval. "
+                    "It will first retrieve relevant documents, then generate an answer based on that knowledge."
+                )
+            )
+            self.agent.tools.append(self.agent.rag_tool)
+            self.agent.final_agent=initialize_agent(
+                self.agent.tools,
+                llm=self.agent.llm,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                verbose=True
+            )
         return self.templates.TemplateResponse("index.html", {"request": request})
     
     async def validate_auth_token(self, request):
@@ -286,12 +308,24 @@ class FastApp :
 
         return EventSourceResponse(event_generator())
     def run(self):
-        uvicorn.run(self.app, host="0.0.0.0", port=8000)
+         uvicorn.run(self.app, host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":
      app=FastApp()
-     app.run()
+     consumer = PowerBIKafkaConsumer(
+        topic="cassandrastream",
+        group_id="cassandrastream-group",
+        bootstrap_servers='kafka:9092',
+        power_bi_url=os.getenv("POWER_BI_URL")
+    )
+     app_thread = threading.Thread(target=app.run)
+     consumer_thread = threading.Thread(target=consumer.consume_loop)
+     
+     app_thread.start()
+     consumer_thread.start()
+     app_thread.join()
+     consumer_thread.join()
 # https://github.com/bhattbhavesh91/pdf-qa-astradb-langchain/blob/main/requirements.txt
 # https://github.com/michelderu/chat-with-your-data-in-cassandra/blob/main/docker-compose.yml
 #https://medium.com/@o39joey/advanced-rag-with-python-langchain-8c3528ed9ff5

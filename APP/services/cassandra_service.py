@@ -5,10 +5,10 @@ import cassio
 import uuid
 from dotenv import load_dotenv
 import os
-
+import threading
 from google import genai
 from datetime import datetime, timedelta
-
+from services.producer import Producer
 from services import User
 
 load_dotenv()  # take environment variables from .env.
@@ -55,7 +55,10 @@ class CassandraManager:
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
         self.KEYSPACE:str=os.getenv("KEYSPACE")
         self.session=self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
-        #self.create_database_tables()
+        self.create_database_tables()
+        self.producer=Producer(
+            topic="cassandrastream"
+        )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -110,11 +113,7 @@ class CassandraManager:
 
     def create_database_tables(self):
         #remove all tables
-        query=f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{self.KEYSPACE}'"
-        rows=self.session.execute(query)
-        for row in rows:
-            query=f"DROP TABLE {self.KEYSPACE}.{row.table_name}"
-            self.session.execute(query)
+        #self.clean()
         create_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.vectores (
             partition_id UUID PRIMARY KEY,
@@ -162,8 +161,16 @@ class CassandraManager:
             evaluation BOOLEAN
         );
         """
+        #self.session.execute(f"ALTER TABLE {self.KEYSPACE}.response_table WITH cdc = true;")
         self.session.execute(create_table)
         self.session.execute(response_table)
+
+    def clean(self):
+        query=f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{self.KEYSPACE}'"
+        rows=self.session.execute(query)
+        for row in rows:
+            query=f"DROP TABLE {self.KEYSPACE}.{row.table_name}"
+            self.session.execute(query)
     def insert_user(self,user_name,user_email,his_job,user_password):
         user_id = uuid.uuid4()
         self.session.execute(
@@ -298,10 +305,7 @@ class CassandraManager:
         user_id = self.retrieve_user_id(user) 
         partition_id = uuid.uuid1()
         now=datetime.now()
-        self.session.execute(
-        f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
-        (partition_id,question, final_answer,now)
-        )
+        self.insert_and_produce(question, final_answer, partition_id, now)
         get_session=f"SELECT * FROM {self.KEYSPACE}.session_table WHERE session_id=%s ALLOW FILTERING"
         result_set = self.session.execute(get_session, (session_id,))
         session_row = result_set.one() if result_set else None
@@ -315,6 +319,30 @@ class CassandraManager:
 
         query_session_response_related=f"""INSERT INTO {self.KEYSPACE}.response_session (session_id,partition_id) VALUES (%s,%s)"""
         self.session.execute(query_session_response_related,(session_id,partition_id))
+
+    def insert_and_produce(self, question, final_answer, partition_id, now):
+        thread = threading.Thread(target=self.insert_into_reponse_table, args=(question, final_answer, partition_id, now))
+        thread.start()
+
+        producer_thread = threading.Thread(
+            target=self.producer.poll_cassandra,
+            kwargs={
+                "timestamp": now,
+                "partition_id": partition_id,
+                "answer": final_answer,
+                "question": question
+            }
+        )
+        producer_thread.start()
+
+        thread.join()
+        producer_thread.join()
+
+    def insert_into_reponse_table(self, question, final_answer, partition_id, now):
+        self.session.execute(
+        f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
+        (partition_id,question, final_answer,now)
+        )
 
     def retrieve_user_id(self, user):
         user_result = self.session.execute(

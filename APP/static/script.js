@@ -357,7 +357,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 async function generateSpeechFromAI() {
     container_ai = document.getElementsByClassName('message ai');
-    console.log(container_ai);
     for (let i = 0; i < container_ai.length; i++) {
         const element = container_ai[i];
         let ai_answer = element.querySelector("#ai_answer");
@@ -497,8 +496,7 @@ async function generateSpeechFromAI() {
           
           messages.style.display = "flex";
           document.getElementById("input").textContent="";
-          const response =( evt.detail.xhr.response)
-          alert(response)
+          //const response =( evt.detail.xhr.response)
           cacheMessages(messages);
         
 

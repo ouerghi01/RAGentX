@@ -3,6 +3,7 @@ import logging
 import time
 from collections import OrderedDict
 from langchain_community.document_compressors import FlashrankRerank
+from langchain.agents import Tool
 
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
@@ -10,7 +11,6 @@ from langchain_google_genai import (
     HarmCategory,
 )
 from langchain.agents import AgentExecutor, create_tool_calling_agent, tool
-from langchain_core.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_experimental.plan_and_execute import (
     PlanAndExecute,
@@ -43,9 +43,10 @@ from services.load_data import DataLoader
 from langchain_community.cache import SQLiteCache
 
 from services.response_html import generate_answer_html
+from services.sql_agent_service import Sql_agent
 
 #from cql_agent import CQLAGENT
-set_llm_cache(SQLiteCache(database_path="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/langchain.db"))
+set_llm_cache(SQLiteCache(database_path="langchain.db"))
 load_dotenv()  # take environment variables from .env.
 os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 os.environ["TAVILY_API_KEY"] = os.getenv("TAVILY_API_KEY")
@@ -101,7 +102,8 @@ class AgentInterface:
         Requires appropriate environment variables to be set for model names,
         API endpoints, and authentication tokens.
     """
-    def __init__(self,role="assistant",cassandra_intra:CassandraManager=CassandraManager(),name_dir="/home/aziz/IA-DeepSeek-RAG-IMPL/APP/uploads"
+    def __init__(self,role="assistant",cassandra_intra:CassandraManager=CassandraManager(),
+                 name_dir="C:/Users/aziz/RAGentX/APP/uploads"
         ):
         """
         Initialize the AgentService class with various components for document processing and retrieval.
@@ -142,8 +144,8 @@ class AgentInterface:
         self.prompt=None
         self.cache = OrderedDict()
         self.cache_ttl = 300
-        self.name_dir=name_dir
-        self.UPLOAD_DIR = Path(self.name_dir) 
+        
+        self.UPLOAD_DIR = Path(name_dir) 
         self.load_data=DataLoader(upload_dir=self.UPLOAD_DIR) 
         
         self.MODEL_NAME_llm=os.getenv("MODEL_NAME")
@@ -173,13 +175,18 @@ class AgentInterface:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             },
         )
-
+        self.sql_agent= Sql_agent(self.llm)
+        self.sql_tool = Tool(
+            name="SQL Agent",
+            func=self.sql_agent.run,  # your preconfigured SQL agent
+            description="Useful for answering questions about customer purchases, products, orders, etc."
+        )
         self.groundedness_check = UpstageGroundednessCheck()
         self.semantic_chunker = SemanticChunker (
         self.hf_embedding, 
         )
         self.semantic_chunker.split_documents
-        self.documents,self.docs_ids= [],[]
+        self.documents,self.docs_ids= self.load_data.load_documents(self.semantic_chunker)
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
@@ -187,6 +194,10 @@ class AgentInterface:
         self.memory = ConversationSummaryMemory(llm=self.llm,memory_key="chat_history",return_messages=True)
 
         self.chain=None
+        self.rag_tool =None
+        self.tools=[self.sql_tool]
+        self.final_agent=None
+       
     def setup_logging(self):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -199,42 +210,41 @@ class AgentInterface:
         keys_to_delete = [key for key, (_, timestamp) in self.cache.items() if current_time - timestamp >= self.cache_ttl]
         for key in keys_to_delete:
             del self.cache[key]
-    def evaluate(self, html_output,css_output):
+    def evaluate(self, html_output):
         prompt = """
-Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
-Ensure the updated HTML follows these criteria:  
+        Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
+        Ensure the updated HTML follows these criteria:  
 
-1. **Valid HTML Syntax**: Proper structure, closing tags, and attribute usage.  
-2. **Essential Elements**: Only include content inside `<body>`, excluding `<html>` and `<head>`.  
-3. **Proper Nesting**: Maintain correct hierarchy without breaking semantics.  
-4. **Semantic HTML**: Use appropriate tags for accessibility and maintainability.  
-5. **CSS Optimization**: Remove redundancy, improve responsiveness, and enhance UI.  
-6. **Ensure styles and scripts are included inside `<style>` and `<script>` within `<body>`.**  
+        1. **Valid HTML Syntax**: Proper structure, closing tags, and attribute usage.  
+        2. **Essential Elements**: Only include content inside `<body>`, excluding `<html>` and `<head>`.  
+        3. **Proper Nesting**: Maintain correct hierarchy without breaking semantics.  
+        4. **Semantic HTML**: Use appropriate tags for accessibility and maintainability.  
+        5. **CSS Optimization**: Remove redundancy, improve responsiveness, and enhance UI.  
+        6. **Ensure styles and scripts are included inside `<style>` and `<script>` within `<body>`.**  
 
-**HTML to evaluate:**  
-{html_output}  
-
-**CSS Output:**  
-{css}  
-
-Generate an improved **HTML structure only** that fits within a container with:  
-- **max-width: 600px**, centered using `margin: 0 auto`  
-- **Padding, light gray background (`#f9f9f9`), rounded corners, and a subtle shadow**  
-
-### **Output Format:**  
-Return **only** the improved HTML. Do not include explanations or additional text.
-"""
+        **HTML to evaluate:**  
+        {html_output}  
 
 
 
-        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output","css"])
+        Generate an improved **HTML structure only** that fits within a container with:  
+        - **max-width: 600px**, centered using `margin: 0 auto`  
+        - **Padding, light gray background (`#f9f9f9`), rounded corners, and a subtle shadow**  
+
+        ### **Output Format:**  
+        Return **only** the improved HTML. Do not include explanations or additional text.
+        """
+
+
+
+        QA_CHAIN_PROMPT = PromptTemplate(template=prompt, input_variables=["html_output"])
         llm_chain = LLMChain(
             llm=self.llm, 
             prompt=QA_CHAIN_PROMPT, 
             callbacks=None, 
             verbose=True
         )
-        evaluation = llm_chain.invoke({"html_output": html_output,"css":css_output})
+        evaluation = llm_chain.invoke({"html_output": html_output})
         text=evaluation['text']
         text=text.replace("```","")
         text=text.replace("html","")
@@ -327,19 +337,8 @@ Return **only** the improved HTML. Do not include explanations or additional tex
             None
         """
         try:
-            self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
-
-
-            self.astra_db_store = AstraDBVectorStore(
-            collection_name="langchain_unstructured",
-            embedding=self.hf_embedding,
-            token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
-            api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
-            )
             
-        except Exception as e:
-            print(f"Error initializing AstraDBVectorStore: {e}")
-
+            
             self.hf_embedding=HuggingFaceEmbeddings(
                 model_name="all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
@@ -349,7 +348,22 @@ Return **only** the improved HTML. Do not include explanations or additional tex
             #self.CassandraInterface.clear_tables()
             self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.cassandraInterface.session, keyspace=self.cassandraInterface.KEYSPACE, table_name="vectores_new")
             
-            self.astra_db_store.clear()
+            #self.astra_db_store.clear()
+            
+            
+            
+        except Exception as e:
+            print(f"Error initializing AstraDBVectorStore: {e}")
+
+            self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
+
+
+            self.astra_db_store = AstraDBVectorStore(
+            collection_name="langchain_unstructured",
+            embedding=self.hf_embedding,
+            token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
+            api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT")
+            )
            
     def simple_chain(self):
        
@@ -416,13 +430,7 @@ Return **only** the improved HTML. Do not include explanations or additional tex
         self.prompt = part_prompt + """
      
 
-    ### Response Guidelines:
-    - Format responses using **HTML** for clear presentation.
-    - Use **CSS styles** to enhance readability (e.g., fonts, colors, spacing).
-    - Use headings (`<h2>`, `<h3>`), lists (`<ul>`, `<ol>`), and tables (`<table>`) where appropriate.
-    - Ensure code snippets are wrapped in `<pre><code>` blocks for proper formatting.
-    - If styling is necessary, include minimal **inline CSS** or suggest appropriate classes.
-    -Use  JavaScript is required, include <script>...</script> tags with your code for animation and manipulate dom.
+    You are Mohamed Aziz Werghi. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**.
 
     **Context:**  
     {context}  
@@ -433,7 +441,6 @@ Return **only** the improved HTML. Do not include explanations or additional tex
     **Question:**  
     {question}  
 
-    **Your answer (in well-structured HTML & CSS && js  format):**
     """
 
 
@@ -510,33 +517,16 @@ Return **only** the improved HTML. Do not include explanations or additional tex
             final_answer=None
 
             try:
-                context=self.compression_retriever.invoke(question_enhanced)
-                context_memory= self.memory.load_memory_variables({}).get("chat_history", [])
-                if context_memory:
-                    context_memory = "\n".join([msg.content for msg in context_memory])
-                    context = f"{context}\n{context_memory}"
                 
-                final_answer = self.chain.invoke(question_enhanced)
-                PROMPT = """
-                Generate CSS from the given HTML.
-                HTML: {Html}
-                
-                CSS: [css]
-                """
-                PROMPT_out= PROMPT.format(
-                    Html=final_answer
-                )
-                css_reponse=self.llm.invoke(PROMPT_out)
-                
-                refined_answer = self.evaluate(final_answer,css_reponse)
+                final_answer = self.final_agent.run(question_enhanced) 
+                refined_answer = self.evaluate(final_answer)
                 final_answer=refined_answer
                 self.logger.info(f"Answer provided: {final_answer}")
                 
                
             except Exception as e:
                 self.logger.error(f"Error while answering question: {e}")
-                self.chain=self.retrieval_chain(self.llm)
-                final_answer = self.chain.invoke(question_enhanced)
+                return 
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
             self.cache_answer(question, final_answer)
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})

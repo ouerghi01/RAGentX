@@ -60,12 +60,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 Below are some screenshots of the app:
 
 ### Screenshot 1
-![App Screenshot 1](one.png)
+![App Screenshot 1](assets/one.png)
 
 ### Screenshot 2
-![App Screenshot 2](two.png)
+![App Screenshot 2](assets/two.png)
 ### Screenshot 3
-![App Screenshot 3](one3.png)
+![App Screenshot 3](assets/one3.png)
 We can see how the agent generates responses with a responsive UI, thanks to the prompt engineering implemented with LangChain.
 
 
