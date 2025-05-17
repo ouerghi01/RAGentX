@@ -10,13 +10,14 @@ from langchain_google_genai import (
     HarmBlockThreshold,
     HarmCategory,
 )
-from langchain.agents import AgentExecutor, create_tool_calling_agent, tool
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain.agents import AgentExecutor
 from langchain_experimental.plan_and_execute import (
     PlanAndExecute,
-    load_agent_executor,
+    
     load_chat_planner,
 )
+from services.cql_agent import CQLAGENT
+
 from langchain_core.globals import set_llm_cache
 from fastapi.responses import HTMLResponse
 from langchain.retrievers.multi_query import MultiQueryRetriever
@@ -36,6 +37,7 @@ from langchain.retrievers import  EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from pydantic import BaseModel
 
+from langchain_community.tools import TavilySearchResults
 
 from services.load_data import DataLoader
 
@@ -63,16 +65,9 @@ from langchain_upstage import UpstageGroundednessCheck
 from langchain_core.prompts import PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import JsonOutputParser
-class Answer(BaseModel):
-    reponse: str = Field(description="The answer to the question")
-class Answers(BaseModel):
-    answers: list[Answer] = Field(description="List of answers to the questions")
+from services.Answer import Answers, Answer
 parser = JsonOutputParser(pydantic_object=Answers)
-class User(BaseModel):
-    username: str
-    email: str | None = None
-    his_job: str | None = None
-    hashed_password: str
+from services.User import User
 class AgentInterface:
     """
     A comprehensive agent interface that manages document processing, retrieval, and question-answering capabilities.
@@ -175,6 +170,7 @@ class AgentInterface:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             },
         )
+        self.memory_llm=[]
         self.sql_agent= Sql_agent(self.llm)
         self.sql_tool = Tool(
             name="SQL Agent",
@@ -186,7 +182,7 @@ class AgentInterface:
         self.hf_embedding, 
         )
         self.semantic_chunker.split_documents
-        self.documents,self.docs_ids= self.load_data.load_documents(self.semantic_chunker)
+        self.documents,self.docs_ids= self.load_data.load_documents(self.semantic_chunker,self.cassandraInterface.session)
         self.parent_store = InMemoryStore()
 
         self.compression_retriever=  None
@@ -195,9 +191,53 @@ class AgentInterface:
 
         self.chain=None
         self.rag_tool =None
-        self.tools=[self.sql_tool]
+        self.tools=[self.sql_tool,
+                
+        Tool(
+            name="LLM Agent",
+            func=self.llm_reponse,  # your preconfigured SQL agent
+            description="Useful for answering any question that does not require external information."
+        )
+        ,
+        TavilySearchResults(
+            max_results=5,
+            include_answer=True,
+            include_raw_content=True,
+            include_images=True,
+            search_depth="advanced",
+            # include_domains = []
+            # exclude_domains = []
+        ),
+        Tool(
+            name="CQL Agent",
+            func=CQLAGENT().answer,  # your preconfigured SQL agent
+            description="Leverages the Cassandra database as a knowledge base to determine if a question has already been answered, using existing data models and tables."
+        )
+        ]
+        
+        
         self.final_agent=None
-       
+    def llm_reponse(self, question: str):
+        """
+        Generate a response from the LLM based on the provided question.
+
+        This method uses the configured LLM to generate a response to the given question.
+        It handles any exceptions that may occur during the generation process.
+
+        Args:
+            question (str): The question to be answered by the LLM.
+
+        Returns:
+            str: The generated response from the LLM.
+        """
+        try:
+            question_enhanced= question+ "this is the last conversation between me and the user: " + "\n".join([f"Q: {q}\nA: {a}" for q, a in self.memory_llm])
+            response = self.llm.invoke(question_enhanced)
+            self.memory_llm.append((question, response))
+            return response
+        except Exception as e:
+            print(f"Error generating LLM response: {e}")
+            return "I don't know"
     def setup_logging(self):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -211,6 +251,8 @@ class AgentInterface:
         for key in keys_to_delete:
             del self.cache[key]
     def evaluate(self, html_output):
+        """
+        Evaluate and enhance the provided HTML and CSS for correctness, completeness, and UI improvements."""
         prompt = """
         Evaluate and enhance the following HTML and CSS for correctness, completeness, and UI improvements.  
         Ensure the updated HTML follows these criteria:  
@@ -369,12 +411,12 @@ class AgentInterface:
        
 
         self.prompt = """
-    You are Mohamed Aziz Werghi, a skilled In cassandra database. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
+    You are AI Agent. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**. 
 
     ### Response Guidelines:
     return list of 5 different  Expected Answers  to this question  in json format 
 
-    #### Role: Mohamed Aziz Werghi 🤖  
+   
     **Context:**  
     {context}  
 
@@ -401,7 +443,12 @@ class AgentInterface:
         )
 
         return chain
-    def retrieval_chain(self,user:User):
+    def retrieval_chain(self,user:User = User(
+        username="aziz",
+        email="aziz@gmail.com",
+        his_job="data scientist",
+        hashed_password="aziz123"
+    )):
         """Creates and returns a retrieval chain for question answering.
 
         The chain combines a compression retriever, prompt template, and Gemini LLM model to:
@@ -483,7 +530,8 @@ class AgentInterface:
 
 
     
-    def answer_question(self,question:str,user,request,session_id,suggestions=None):
+    def answer_question(self,question:str,user,request,session_id,suggestions=None,time_sended_question=None
+                        ,complete_agent=None):
         """
         Process a user question and return an answer using either cached responses or generating a new one.
 
@@ -513,27 +561,27 @@ class AgentInterface:
         if exist_answer is not None:
             return self.generate_message_html(question, exist_answer)
         else:
-            question_enhanced= question + "suggestions:words u may need to use "+"\n".join(suggestions)
+            question_enhanced= question 
             final_answer=None
 
             try:
-                
+                if self.final_agent is None:
+                    complete_agent(user)
                 final_answer = self.final_agent.run(question_enhanced) 
+                if (question,final_answer) not in self.memory_llm:
+                    self.memory_llm.append((question, final_answer))
                 refined_answer = self.evaluate(final_answer)
-                final_answer=refined_answer
-                self.logger.info(f"Answer provided: {final_answer}")
+                self.logger.info(f"Answer provided: {refined_answer}")
                 
                
             except Exception as e:
                 self.logger.error(f"Error while answering question: {e}")
                 return 
             #final_answer= self.answer_rewriting(f"{final_answer}",question)
-            self.cache_answer(question, final_answer)
+            self.cache_answer(question, refined_answer)
             self.memory.save_context({"question": question}, {"answer": f"{final_answer}"})
-           
-            self.cassandraInterface.insert_answer(session_id,user,question,final_answer)
-            reponse= self.generate_message_html(question, final_answer)
-         
+            self.cassandraInterface.insert_answer(session_id,user,question,final_answer,time_sended_question)
+            reponse= self.generate_message_html(question, refined_answer)
             return reponse
     def make_agent(self, question: str, tools: list):
         

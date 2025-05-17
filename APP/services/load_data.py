@@ -10,25 +10,34 @@ class DataLoader:
         self.UPLOAD_DIR = upload_dir
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)
 
-    def load_documents(self,semantic_spliter):
+    def load_documents(self,semantic_spliter,session):
         docs = []
         all_files = os.listdir(self.UPLOAD_DIR)
         threads = []
         for file in all_files:
-            if file.endswith(".pdf"):
-                thread = threading.Thread(target=self.process_pdf_file, args=(docs, file))
-                threads.append(thread)
-            elif file.endswith(".csv"):
-                thread = threading.Thread(target=self.load_csv_to_documents, args=(docs, file))
-                threads.append(thread)
+            if(session.execute("SELECT * FROM shop.documents WHERE FILE_name = %s ALLOW FILTERING", (file,)).one() is not None):
+                continue
+            else:
+                document_id = (uuid.uuid4())
+                session.execute("INSERT INTO shop.documents (FILE_name,document_id) VALUES (%s,%s)", (file,document_id))
+                #session.commit()
+                self.choosing_logic(docs, threads, file)
 
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
-        #docs=semantic_spliter.split_documents(docs)
+        docs=semantic_spliter.split_documents(docs)
         doc_ids = [str(uuid.uuid4()) for _ in docs]
         return docs, doc_ids
+
+    def choosing_logic(self, docs, threads, file):
+        if file.endswith(".pdf"):
+            thread = threading.Thread(target=self.process_pdf_file, args=(docs, file))
+            threads.append(thread)
+        elif file.endswith(".csv"):
+            thread = threading.Thread(target=self.load_csv_to_documents, args=(docs, file))
+            threads.append(thread)
 
     
 

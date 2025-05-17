@@ -9,8 +9,7 @@ import threading
 from google import genai
 from datetime import datetime, timedelta
 from services.producer import Producer
-from services import User
-
+from services.User import User
 load_dotenv()  # take environment variables from .env.
 from datetime import datetime
 def categorize_timestamp(ts):
@@ -30,6 +29,7 @@ def categorize_timestamp(ts):
         return "Last 30 Days"
     else:
         return session_date.strftime("%B %Y")  # e.g., "February 2025"
+
 class CassandraManager:
     """A class to handle interactions with a Cassandra database.
     This class provides an interface for managing connections, tables, and operations
@@ -55,11 +55,19 @@ class CassandraManager:
         self.CASSANDRA_USERNAME=os.getenv("CASSANDRA_HOST")
         self.KEYSPACE:str=os.getenv("KEYSPACE")
         self.session=self.initialize_database_session(self.CASSANDRA_PORT,self.CASSANDRA_USERNAME)
+        #self.clean()
         self.create_database_tables()
         self.producer=Producer(
             topic="cassandrastream"
         )
+    def get_session(self):
+        """
+        Returns the current Cassandra session object.
 
+        Returns:
+            session: The current Cassandra session object
+        """
+        return self.session
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Context manager exit method that ensures proper shutdown of the Cassandra session.
@@ -113,15 +121,15 @@ class CassandraManager:
 
     def create_database_tables(self):
         #remove all tables
-        #self.clean()
-        create_table = f"""
-        CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.vectores (
-            partition_id UUID PRIMARY KEY,
-            document_text TEXT,  -- Text extracted from the PDF
-            document_content BLOB,  -- PDF content stored as binary data
-            vector BLOB  -- Store the embeddings (vector representation of the document)
+        
+        create_documents_table = f"""
+        CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.documents (
+            document_id UUID PRIMARY KEY,
+            FILE_name TEXT  -- Text extracted from the PDF
         );
         """
+        self.session.execute(create_documents_table)
+
         create_user_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.users_new (
             user_id UUID PRIMARY KEY,
@@ -132,14 +140,17 @@ class CassandraManager:
         );
         """
         self.session.execute(create_user_table)
-        create_session_table = f"""
+        create_session_table =f"""
             CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.session_table (
                 session_id UUID,
                 title TEXT,
                 timestamp TIMESTAMP,
+                close_session_time TIMESTAMP,
+                
                 user_id UUID,
-                PRIMARY KEY (session_id)
-            );
+                PRIMARY KEY (session_id,timestamp)
+            )WITH CLUSTERING ORDER BY (timestamp DESC)
+            ;
             """
         self.session.execute(create_session_table)
         session_response_table = f"""
@@ -155,6 +166,7 @@ class CassandraManager:
         response_table = f"""
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.response_table (
             partition_id UUID PRIMARY KEY,
+            the_time_question_sended TIMESTAMP,
             question TEXT,  
             answer TEXT,
             timestamp TIMESTAMP,
@@ -162,13 +174,15 @@ class CassandraManager:
         );
         """
         #self.session.execute(f"ALTER TABLE {self.KEYSPACE}.response_table WITH cdc = true;")
-        self.session.execute(create_table)
         self.session.execute(response_table)
+        
 
     def clean(self):
         query=f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{self.KEYSPACE}'"
         rows=self.session.execute(query)
         for row in rows:
+            if row.table_name == "vectores_new":
+                continue
             query=f"DROP TABLE {self.KEYSPACE}.{row.table_name}"
             self.session.execute(query)
     def insert_user(self,user_name,user_email,his_job,user_password):
@@ -184,8 +198,7 @@ class CassandraManager:
         user_row = result_set.one() if result_set else None
         return user_row
     def execute_statement(self,statement: str):
-    # This is a simple wrapper around executing CQL statements in our
-    # Cassandra cluster, and either raising an error or returning the results
+   
         try:
             rows  = self.session.execute(statement)
             
@@ -251,10 +264,15 @@ class CassandraManager:
             else:
                 schema[row.table_name]+=f" column_name : {row.column_name}  type : {row.type} \n"
         return schema
-    def create_room_session(self):
+    def create_room_session(self,username):
         session_id = uuid.uuid4()
-        create_session_row=f"""INSERT INTO {self.KEYSPACE}.session_table (session_id) VALUES (%s)"""
-        self.session.execute(create_session_row,(session_id,))
+        
+        user_id = self.retrieve_user_id(username)
+        if user_id is None:
+            raise ValueError("User not found")
+        timestamp = datetime.now()
+        create_session_row=f"""INSERT INTO {self.KEYSPACE}.session_table (session_id,user_id,timestamp) VALUES (%s,%s,%s)"""
+        self.session.execute(create_session_row,(session_id,user_id,timestamp))
         return session_id
     def evaluate_reponse(self,partition_id,evaluation):
         query=f"UPDATE {self.KEYSPACE}.response_table SET evaluation={evaluation} WHERE partition_id={partition_id}"
@@ -275,11 +293,12 @@ class CassandraManager:
             category = categorize_timestamp(row['timestamp'])
             if category is None:
                 continue
-            grouped_sessions[category].append({
-                "session_id": key,
-                "title": row['title'],
-                "timestamp": row['timestamp']
-            })
+            if row['title'] is not None:
+                grouped_sessions[category].append({
+                    "session_id": key,
+                    "title": row['title'],
+                    "timestamp": row['timestamp']
+                })
         sort_order = ["Today", "Yesterday", "Last 7 Days", "Last 30 Days"]
         sorted_grouped = {}
         for key in sort_order:
@@ -289,8 +308,44 @@ class CassandraManager:
             if key not in sort_order:
                 sorted_grouped[key] = grouped_sessions[key]
         return sorted_grouped
+    def close_room_session(self,session_id):
+        session = self.get_last_session_created(session_id)
+        if session is None:
+            raise ValueError("Session not found")
+        close_session_time=datetime.now()
+        self.session.execute(
+            f"Insert into {self.KEYSPACE}.session_table (session_id,title,timestamp,user_id,close_session_time) VALUES (%s,%s,%s,%s,%s)",
+            (session_id, session.title, session.timestamp, session.user_id,close_session_time)
+        )
+
+    def get_last_session_created(self, session_id):
+        query = f"""
+            SELECT * FROM {self.KEYSPACE}.session_table
+            WHERE session_id=%s LIMIT 1
+        """
+        session = self.session.execute(query, (session_id,)).one()
+        return session
+    def get_last_session_created_by_user(self, username):
+        user_id = self.retrieve_user_id(username)
+        query = f"""
+            SELECT * FROM {self.KEYSPACE}.session_table
+            WHERE user_id=%s LIMIT 1 ALLOW FILTERING
+        """
+        session = self.session.execute(query, (user_id,)).one()
+        return session
     def get_chat_history(self, session_id):
         session_id= uuid.UUID(session_id)
+        query = f"""
+            SELECT * FROM {self.KEYSPACE}.session_table
+            WHERE session_id=%s LIMIT 1
+        """
+        session = self.session.execute(query, (session_id,)).one()
+        timestamp=datetime.now()
+        self.session.execute(
+            f"Insert into {self.KEYSPACE}.session_table (session_id,title,timestamp,user_id) VALUES (%s,%s,%s,%s)",
+            (session_id, session.title, timestamp, session.user_id)
+        )
+        
         all_ids = self.session.execute(f"SELECT partition_id FROM {self.KEYSPACE}.response_session WHERE session_id=%s ALLOW FILTERING", (session_id,))
         all_ids = [row.partition_id for row in all_ids]
         result_set = []
@@ -301,27 +356,28 @@ class CassandraManager:
         for row in result_set:
             chat_history.append((row.question, row.answer))
         return chat_history
-    def insert_answer(self,session_id,user:User,question,final_answer):
-        user_id = self.retrieve_user_id(user) 
+    def insert_answer(self,session_id,user:User,question,final_answer,time_sended):
+        
         partition_id = uuid.uuid1()
         now=datetime.now()
-        self.insert_and_produce(question, final_answer, partition_id, now)
+        self.insert_and_produce(question, final_answer, partition_id, now,time_sended,user.username)
         get_session=f"SELECT * FROM {self.KEYSPACE}.session_table WHERE session_id=%s ALLOW FILTERING"
         result_set = self.session.execute(get_session, (session_id,))
         session_row = result_set.one() if result_set else None
-        if session_row.title is None and session_row.user_id is None:
+        if session_row.title is None :
             llm=genai.Client(api_key="AIzaSyAcIGFo53M8vf2eb_UO4JGBYb0an7B8xH4").chats.create(model="gemini-2.0-flash")
             prompt = f"Generate a short and engaging chat title based on this question: '{question}'. Respond with a maximum of 3 lowercase words, separated by commas, without any extra symbols or formatting."
             title=llm.send_message(prompt).text
-            query=f"UPDATE {self.KEYSPACE}.session_table SET title=%s, timestamp=%s,user_id=%s WHERE session_id=%s"
+            
+            query=f"UPDATE {self.KEYSPACE}.session_table SET title=%s WHERE session_id=%s and timestamp=%s"
             now = datetime.now()
-            self.session.execute(query,(title, now,user_id, session_id)) 
+            self.session.execute(query,(title, session_id,session_row.timestamp)) 
 
         query_session_response_related=f"""INSERT INTO {self.KEYSPACE}.response_session (session_id,partition_id) VALUES (%s,%s)"""
         self.session.execute(query_session_response_related,(session_id,partition_id))
 
-    def insert_and_produce(self, question, final_answer, partition_id, now):
-        thread = threading.Thread(target=self.insert_into_reponse_table, args=(question, final_answer, partition_id, now))
+    def insert_and_produce(self, question, final_answer, partition_id, now,time_sended,user):
+        thread = threading.Thread(target=self.insert_into_reponse_table, args=(question, final_answer, partition_id, now,time_sended))
         thread.start()
 
         producer_thread = threading.Thread(
@@ -330,7 +386,9 @@ class CassandraManager:
                 "timestamp": now,
                 "partition_id": partition_id,
                 "answer": final_answer,
-                "question": question
+                "question": question,
+                "the_time_question_sended": time_sended,
+                "user": user
             }
         )
         producer_thread.start()
@@ -338,16 +396,17 @@ class CassandraManager:
         thread.join()
         producer_thread.join()
 
-    def insert_into_reponse_table(self, question, final_answer, partition_id, now):
+    def insert_into_reponse_table(self, question, final_answer, partition_id, now,time_sended):
         self.session.execute(
-        f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation) VALUES (%s, %s, %s, %s,false)",
-        (partition_id,question, final_answer,now)
+        f"INSERT INTO {self.KEYSPACE}.response_table (partition_id, question, answer,timestamp,evaluation,the_time_question_sended) VALUES (%s, %s, %s, %s,false,%s)",
+        (partition_id,question, final_answer,now,time_sended)
         )
 
-    def retrieve_user_id(self, user):
+    def retrieve_user_id(self, user: User | str):
+        username = user if isinstance(user, str) else user.username
         user_result = self.session.execute(
             f"SELECT user_id FROM {self.KEYSPACE}.users_new WHERE username=%s ALLOW FILTERING", 
-            (user.username,)
+            (username,)
         ).one()
         user_id = user_result.user_id if user_result else None
         return user_id

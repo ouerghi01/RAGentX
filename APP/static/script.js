@@ -89,59 +89,19 @@ function tryFollowingQuestion() {
         questions.appendChild(question);
     }
 }
-function showUIUploadPDF() {
+
+function showUIUploadPDF(droppedFile) {
   const uploadpdf = document.getElementById('uploadpdf');
   uploadpdf.innerHTML = ""; // Clear previous content
-  
   const title = document.createElement("h3");
   title.textContent = "Upload context file";
-  title.style.textAlign = "center";
-  title.style.color = "white";
-  title.style.fontWeight = "bold";
-  
+  Object.assign(title.style, {
+    textAlign: "center",
+    color: "white",
+    fontWeight: "bold"
+  });
   uploadpdf.appendChild(title);
-  
-  const dropArea = document.createElement("div");
-  dropArea.classList.add("upload-area");
-  dropArea.style.display = "flex";
-  dropArea.style.flexDirection = "column";
-  dropArea.style.justifyContent = "center";
-  dropArea.style.alignItems = "center";
-  dropArea.style.height = "100px";
-  dropArea.style.border = "2px dashed #007bff";
-  dropArea.style.borderRadius = "10px";
-  dropArea.style.backgroundColor = "#f8f9fa";
-  dropArea.style.padding = "20px";
-  dropArea.style.textAlign = "center";
-  dropArea.style.cursor = "pointer";
-  dropArea.style.transition = "0.3s ease-in-out";
-  dropArea.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropArea.style.backgroundColor = "#e3f2fd";
-  });
-  dropArea.addEventListener("dragleave", () => {
-      dropArea.style.backgroundColor = "#f8f9fa";
-  });
-  dropArea.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropArea.style.backgroundColor = "#f8f9fa";
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-          input.files = files;
-      }
-  });
-  
-  const promptText = document.createElement("p");
-  promptText.textContent = "Drop or click to upload";
-  promptText.style.color = "#2a3439";
-  dropArea.appendChild(promptText);
-  
-  const fileLimit = document.createElement("p");
-  fileLimit.textContent = "Limit: 200 MB per file";
-  fileLimit.style.color = "#2a3439";
-  fileLimit.style.fontSize = "14px";
-  dropArea.appendChild(fileLimit);
-  
+
   const input = document.createElement("input");
   input.type = "file";
   input.id = "file";
@@ -149,59 +109,153 @@ function showUIUploadPDF() {
   input.accept = ".pdf";
   input.multiple = false;
   input.style.display = "none";
-  
-  dropArea.addEventListener("click", () => input.click());
-  input.addEventListener("change", () => {
-      if (input.files.length > 0) {
-          promptText.textContent = `Selected file: ${input.files[0].name}`;
-          promptText.style.color = "green";
-      }
+
+  const dropArea = document.createElement("div");
+  dropArea.classList.add("upload-area");
+  Object.assign(dropArea.style, {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "100px",
+    border: "2px dashed #007bff",
+    borderRadius: "10px",
+    backgroundColor: "#f8f9fa",
+    padding: "20px",
+    textAlign: "center",
+    cursor: "pointer",
+    transition: "0.3s ease-in-out"
   });
-  
+
+  const promptText = document.createElement("p");
+  promptText.textContent = "Drop or click to upload";
+  promptText.style.color = "#2a3439";
+
+  const fileLimit = document.createElement("p");
+  fileLimit.textContent = "Limit: 200 MB per file";
+  fileLimit.style.color = "#2a3439";
+  fileLimit.style.fontSize = "14px";
+
+  const statusMessage = document.createElement("p");
+  statusMessage.style.marginTop = "10px";
+  statusMessage.style.textAlign = "center";
+
+  const updatePromptText = (text) => {
+    console.log("Selected file:", text);
+    promptText.textContent = `Selected file: ${text}`;
+    promptText.style.color = "green";
+    statusMessage.textContent = "";
+  };
+
+  dropArea.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropArea.style.backgroundColor = "#e3f2fd";
+  });
+
+  dropArea.addEventListener("dragleave", () => {
+    dropArea.style.backgroundColor = "#f8f9fa";
+  });
+
+  dropArea.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropArea.style.backgroundColor = "#f8f9fa";
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      droppedFile = files[0];
+      input.value = ''; // Clear input value
+      updatePromptText(droppedFile.name);
+    }
+  });
+
+  dropArea.addEventListener("click", () => {
+  input.click();
+});
+
+
+  input.addEventListener("change", () => {
+    if (input.files.length > 0) {
+      //droppedFile = null; // Reset any dropped file
+      if (input.files.length > 0) {
+      droppedFile = input.files[0];
+      input.value = ''; // Clear input value
+      updatePromptText(droppedFile.name);
+    }
+    }
+  });
+
+  dropArea.appendChild(promptText);
+  dropArea.appendChild(fileLimit);
   dropArea.appendChild(input);
   uploadpdf.appendChild(dropArea);
-  
+
   const saveButton = document.createElement("button");
   saveButton.textContent = "Upload";
-  saveButton.style.marginTop = "15px";
-  saveButton.style.padding = "10px 20px";
-  saveButton.style.border = "none";
-  saveButton.style.borderRadius = "5px";
-  saveButton.style.backgroundColor = "#007bff";
-  saveButton.style.color = "white";
-  saveButton.style.fontSize = "16px";
-  saveButton.style.cursor = "pointer";
-  saveButton.style.transition = "0.3s";
-  saveButton.addEventListener("mouseenter", () => saveButton.style.backgroundColor = "#0056b3");
-  saveButton.addEventListener("mouseleave", () => saveButton.style.backgroundColor = "#007bff");
-  uploadpdf.appendChild(saveButton);
-  saveButton.onclick = function () {
-      const file = input.files[0];
-      if (!file) {
-          alert("Please select a file to upload");
-          return;
-      }
-      if (file.size > 200 * 1024 * 1024) {
-          alert("File size exceeds the limit of 200 MB");
-          return;
-      }
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      fetch("/uploads/", {
-          method: "POST",
-          body: formData,
-      })
-          .then((response) => response.json())
-          .then((data) => {
-              alert(data.message);
-          })
-          .catch((error) => {
-              console.error("Error:", error);
-          });
-  }
+  Object.assign(saveButton.style, {
+    marginTop: "15px",
+    padding: "10px 20px",
+    border: "none",
+    borderRadius: "5px",
+    backgroundColor: "#007bff",
+    color: "white",
+    fontSize: "16px",
+    cursor: "pointer",
+    transition: "0.3s"
+  });
 
+  saveButton.addEventListener("mouseenter", () => {
+    saveButton.style.backgroundColor = "#0056b3";
+  });
+  saveButton.addEventListener("mouseleave", () => {
+    saveButton.style.backgroundColor = "#007bff";
+  });
+
+    saveButton.onclick = function () {
+    const file = droppedFile || input.files[0];
+
+    if (!file) {
+      alert("Please select a file to upload");
+      return;
+    }
+
+    if (file.size > 200 * 1024 * 1024) {
+      alert("File size exceeds the limit of 200 MB");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    saveButton.disabled = true;
+    saveButton.textContent = "Uploading...";
+    statusMessage.textContent = "";
+
+    fetch("/uploads/", {
+      method: "POST",
+      body: formData,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+        const data = await response.json();
+        statusMessage.textContent = data.message || "Upload successful!";
+        statusMessage.style.color = "green";
+      })
+      .catch((error) => {
+        console.error("Upload error:", error);
+        statusMessage.textContent = "Upload failed: " + error.message;
+        statusMessage.style.color = "red";
+      })
+      .finally(() => {
+        saveButton.disabled = false;
+        saveButton.textContent = "Upload";
+      });
+  };
+
+  uploadpdf.appendChild(saveButton);
+  uploadpdf.appendChild(statusMessage);
 }
+
 
 function showLoggedInState(username, job) {
     const messanger = document.getElementById('messanger');
@@ -213,7 +267,16 @@ function showLoggedInState(username, job) {
 
   
     // Show/hide elements
-    messanger.style.display = 'flex';
+    if (localStorage.getItem("chat_messages") == null) {
+        console.log("No chat messages found in localStorage.");
+        const messagesContainer = document.getElementById("messages");
+        messagesContainer.style.display = "none"; // hide the messages
+      }else{
+                console.log("No chat messages found in localStorage.");
+
+        messanger.style.display = 'flex';
+      }
+    
     loginTab.style.display = 'none';
     registerTab.style.display = 'none';
     login.style.display = 'none';
@@ -274,12 +337,16 @@ function showLoggedInState(username, job) {
     logoutTab.appendChild(infoText);
     logoutTab.appendChild(buttonLogout);
   }
+
+
   
 if (typeof(Storage) !== "undefined") {
     // Code for localStorage/sessionStorage.
     const jwt = localStorage.getItem('jwt');
     const formData= new FormData();
     formData.append("jwt", jwt);
+    console.log("JWT from localStorage:", jwt);
+    if (jwt) {
     const verified_jwt = fetch("/verify/", {
         method: "POST",
         body: formData,
@@ -291,28 +358,55 @@ if (typeof(Storage) !== "undefined") {
         .catch((error) => {
             console.error("Error:", error);
         });
-    
-    if(verified_jwt && jwt){
+        if(verified_jwt && jwt){
       document.getElementById('messanger').style.display = 'flex';
       document.getElementById('login-tab').style.display = 'none';
       document.getElementById('register-tab').style.display = 'none';
       document.getElementById('login').style.display = 'none';
       document.getElementById('logout-tab').style.display = 'flex';
       document.getElementById('nav_right').style.display = 'flex';
+      if (localStorage.getItem("chat_messages") == null) {
+        const messagesContainer = document.getElementById("messages");
+        console.log("No chat messages found in localStorage.");
+        messagesContainer.style.display = "none"; // hide the messages
+      }
       const username= localStorage.getItem('username');
-        const job = localStorage.getItem('his_job');
+      const job = localStorage.getItem('his_job');
+        let droppedFile = null;
+
       showLoggedInState(username,job);
-      showUIUploadPDF();
+      showUIUploadPDF(droppedFile);
       tryFollowingQuestion();
     }else{
         document.getElementById('questions').style.display='none';
         document.getElementById('uploadpdf').style.display='none';
         document.getElementById('messanger').style.display = 'none';
         document.getElementById('logout-tab').style.display = 'none';
+        document.getElementById('nav_right').style.display = 'none';
+        console.log("JWT is invalid or expired.");
         clearMessages()
         const nav_right= document.getElementById('nav_right');
         nav_right.style.display='none';
     }
+      }else{
+        console.log("No JWT found in localStorage.");
+        document.getElementById('questions').style.display='none';
+        document.getElementById('uploadpdf').style.display='none';
+        document.getElementById('messanger').style.display = 'none';
+        document.getElementById('logout-tab').style.display = 'none';
+        document.getElementById('nav_right').style.display = 'none';
+        clearMessages()
+      }
+    
+    if (!window._beforeUnloadListenerAdded) {
+    window.addEventListener('beforeunload', function () {
+        navigator.sendBeacon("/close_session", JSON.stringify({
+            jwt: localStorage.getItem("jwt")
+        }));
+    });
+    window._beforeUnloadListenerAdded = true;
+  }
+
   }   
 function switchTab(tab) {
       document.getElementById('login-tab').classList.remove('active');
@@ -365,9 +459,10 @@ async function generateSpeechFromAI() {
 
             let enteredText = removeTags(ai_answer.textContent);
 
-            const apiKey = "AIzaSyD59T_Pyw4rzPrU90s_64Ctp2kOWBfKH9Q";
-            const userInput = `Convert the given text into natural-sounding speech : ${enteredText}`;
-            const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=" + apiKey, {
+            const apiKey = "AIzaSyDqKV_S_oWuBc3-Cob7hkPHuIyak-GVTwE";
+            const userInput = `Convert the following AI response into natural, fluent speech that sounds like a real person reading it out loud, without introductory phrases or extra commentary: ${enteredText}`;
+
+            const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: [{ text: userInput }] }] })
@@ -448,7 +543,7 @@ async function generateSpeechFromAI() {
     }
 }
 
-      function removeTags(str) {
+function removeTags(str) {
         
         if ((str === null) || (str === ''))
             return false;
@@ -490,7 +585,7 @@ async function generateSpeechFromAI() {
         
 
     }
-    document.body.addEventListener("htmx:afterSwap", async  function(evt) {
+document.body.addEventListener("htmx:afterSwap", async  function(evt) {
         const messages=document.getElementById('messages')
         if (evt.detail.target.id === "messages") {
           
@@ -502,7 +597,7 @@ async function generateSpeechFromAI() {
 
         }
       });
-  document.addEventListener("htmx:afterRequest", async function(event) {
+document.addEventListener("htmx:afterRequest", async function(event) {
       // Check if the request was for login
       if (event.detail.elt.closest("#login")) {
          const response =JSON.parse( event.detail.xhr.response)
@@ -548,8 +643,8 @@ async function generateSpeechFromAI() {
       
     }
 );
-  var ws = new WebSocket("ws://localhost:8000/ws");
-  ws.onmessage = function(event) {
+var ws = new WebSocket("ws://localhost:8000/ws");
+ws.onmessage = function(event) {
     var input = $("#input"); // jQuery selector
     input.css("transition", "all 0.3s ease");
 

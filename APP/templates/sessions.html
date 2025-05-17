@@ -135,6 +135,8 @@ async function load_conversation(session_id) {
             if (!response.ok) throw new Error(`Response status: ${response.status}`);
             const json = await response.json();
             console.log(json);
+            localStorage.setItem("chat_messages",null);
+            document.getElementById("messages").innerHTML = "";
         } catch (error) {
             console.error(error.message);
         }

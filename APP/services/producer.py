@@ -12,7 +12,7 @@ class Producer:
         self.topic = topic
         self.stack = []
         self.producer = KafkaProducer(
-            bootstrap_servers=['kafka:9092'],
+            bootstrap_servers=['localhost:9092'],
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
         )
 
@@ -24,14 +24,16 @@ class Producer:
         except Exception as e:
             print(f"❌ Failed to send message: {e}")
     def poll_cassandra(self,
-    timestamp,partition_id,answer,question
+    timestamp,partition_id,answer,question,the_time_question_sended,user
     ):
         try:
             data = {
-                    "timestamp": str(timestamp),
+                    "time_question_answered": str(timestamp),
                     "partition_id": str(partition_id),
                     "response": answer,
                     "question": question,
+                    "username": user,
+                    "time_question_sended": str(the_time_question_sended),
                     "source": "cassandra"
                     }
             if not data in self.stack:

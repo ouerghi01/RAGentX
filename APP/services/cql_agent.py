@@ -1,10 +1,9 @@
-from cassandra_service import CassandraManager
-from TEXT2CQL_PROMPT import PROMPT_FIX_CQL_V2
+from services.cassandra_service import CassandraManager
+from services.TEXT2CQL_PROMPT import PROMPT_FIX_CQL_V2
 from dotenv import load_dotenv
 import json 
 from google import genai
 load_dotenv()  # take environment variables from .env.
-from langchain_core.messages import HumanMessage
 class CQLAGENT:
     def __init__(self):
         self.cassandra_interface = CassandraManager()
@@ -72,7 +71,8 @@ class CQLAGENT:
             query=completion
             resultas=self.cassandra_interface.execute_statement(completion)
             return resultas
-    def answer_data_with_cql(self, question):
+    def answer(self, question):
+        """Answer a question using CQL queries based on the provided schema and keys."""
         prompt_text="""
             Convert the given question into multiple CQL (Cassandra Query Language) queries that, when executed sequentially, can retrieve an appropriate answer.
             1. **Avoid `GROUP BY`, `JOINs`, and `Subqueries`:**
