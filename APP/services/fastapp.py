@@ -8,6 +8,8 @@ from langchain.agents import Tool
 from pydantic import BaseModel
 from sse_starlette import EventSourceResponse
 import uvicorn
+import random
+
 from services.PredictNextWord import PredictNextWord
 from services.response_html import generate_answer_html
 from services.agent_service import AgentInterface
@@ -66,6 +68,7 @@ class FastApp :
         )
         self.session_id=None
         self.sessions={}
+        self.agents= {}
         
         self.app.add_event_handler("startup", self.startup_event)
         self.app.add_event_handler("shutdown", self.shutdown_event)
@@ -100,6 +103,8 @@ class FastApp :
         if (token ):
             if (self.sessions.get(token.the_user) is None):
                 self.sessions[token.the_user]=self.cassandra_intra.create_room_session(token.the_user)
+            asyncio.create_task(self.add_agent_to_user(token))
+
             return token 
         else:
             raise HTTPException(
@@ -107,6 +112,16 @@ class FastApp :
                 detail="Invalid username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+    async def add_agent_to_user(self, token):
+        if(self.agents== {}):
+            agent=AgentInterface()
+        else:
+            agent = random.choice(list(self.agents.values()))
+        agent.compression_retriever=await agent.setup_ensemble_retrievers()
+        current_user=await self.auth_service.get_current_user(token.access_token)
+        agent=self.complete_agent(current_user,agent)
+        self.agents[current_user.username]=agent
     async def upload_file(self,file: UploadFile = File(...)):
          
          
@@ -134,11 +149,8 @@ class FastApp :
         """
         print("Starting App ...")
         #contents,urls = await main_crawler()
-        self.agent=AgentInterface("assistant",self.cassandra_intra,name_dir="C:/Users/aziz/RAGentX/APP/uploads")
-        self.agent.compression_retriever=await self.agent.setup_ensemble_retrievers()
-        self.agent.chain=None
-        self.auth_service.agent=self.agent
-        self.session_id=uuid.uuid4()
+        
+        #self.auth_service.agent=None
         self.templates = Jinja2Templates(directory="templates")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")
     async def send_message(self,request:Request,question:str=Form(...)):
@@ -161,13 +173,14 @@ class FastApp :
         suggestions=[]
         time_sended_question=datetime.now()
         session_id=self.sessions.get(current_user.username)
-        html_answer= self.agent.answer_question(question,current_user,request,session_id,suggestions,time_sended_question,
-                                                self.complete_agent)
+        agent : AgentInterface=self.agents.get(current_user.username)
+        html_answer= agent.answer_question(question,current_user,request,session_id,suggestions,time_sended_question,
+                                                )
         return html_answer
     
     def shutdown_event(self):
-        self.agent.CassandraInterface.session.shutdown()
-        self.agent=None
+        self.agents={}
+        self.sessions={}
         self.templates = None
     async def verify_jwt(self,request:Request,jwt:str=Form(...)):
         current_user=await self.auth_service.get_current_user(jwt)
@@ -182,35 +195,35 @@ class FastApp :
         current_user=await self.auth_service.get_current_user(jwt)
         
         if( current_user is None):
-                self.agent.chain=None
+                self.agents={}
         else:
             session_conv=self.cassandra_intra.get_last_session_created_by_user(current_user.username)
             self.sessions[current_user.username]=session_conv.session_id
-            self.complete_agent(current_user)
+            self.add_agent_to_user(jwt)
+            #self.complete_agent(current_user)
         return self.templates.TemplateResponse("index.html", {"request": request})
 
-    def complete_agent(self, current_user):
+    def complete_agent(self, current_user,agent):
         from langchain.agents import initialize_agent
         from langchain.agents.agent_types import AgentType
-        self.agent.chain=self.agent.retrieval_chain(current_user)
-        self.agent.rag_tool=Tool(
+        agent.chain=agent.retrieval_chain(current_user)
+        agent.rag_tool=Tool(
                 name="Deep Answering Agent",
-                func=self.agent.chain.invoke,
-                description=(
-                    "This tool is powered by a full Retrieval-Augmented Generation (RAG) agent, designed to answer complex questions "
-                    "by retrieving and reasoning over relevant documents. It maintains memory of previous interactions to provide context-aware "
-                    "and coherent responses across turns. Ideal for handling general knowledge inquiries, deep research tasks, and scenarios "
-                    "that go beyond the capabilities of SQL-based tools."
-                )
+                func=agent.chain.invoke,
+                description = (
+    "This tool is backed by a full Retrieval-Augmented Generation (RAG) agent, optimized for deep and context-aware information retrieval. "
+    "It is invoked by the main agent when a query requires in-depth reasoning or highly specific knowledge that cannot be handled by simple "
+    "complex and research-intensive tasks."
+)
             )
-        self.agent.tools.append(self.agent.rag_tool)
-        self.agent.final_agent=initialize_agent(
-                self.agent.tools,
-                llm=self.agent.llm,
+        agent.tools.append(agent.rag_tool)
+        agent.final_agent=initialize_agent(
+                 agent.tools,
+                llm=agent.llm,
                 agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
                 verbose=True
             )
-    
+        return agent
     async def validate_auth_token(self, jwt : Request| str):
         jwt= jwt if isinstance(jwt, str) else jwt.cookies.get("auth_token")
         if jwt is None:
@@ -248,17 +261,21 @@ class FastApp :
                 raise HTTPException(status_code=401, detail="Authentication failed: No valid token provided.")
          session_id=self.sessions.get(current_user.username)
          self.cassandra_intra.close_room_session(session_id)
-         self.agent.memory.clear()
-         self.agent.memory_llm=[]
+         username=current_user.username
+         self.agents[username]=self.agents[username].memory.clear()
+         self.agents[username]=self.agents[username].memory_llm.clear()
          return JSONResponse(content="Session closed")
     async def create_session(self,request:Request):
          current_user=await self.validate_auth_token(request)
-         self.session_id=self.cassandra_intra.create_room_session(
+         
+         session_id=self.cassandra_intra.create_room_session(
              current_user.username
              ) # uuid type return
-         self.agent.memory.clear() 
-         self.agent.memory_llm=[]
-         return JSONResponse(content=str(self.session_id))
+         self.sessions[current_user.username]=session_id
+         self.agents[current_user]=self.agents[current_user].memory.clear()
+         self.agents[current_user]=self.agents[current_user].memory_llm.clear()
+         
+         return JSONResponse(content=str(session_id))
     async def get_sessions(self, request: Request):
         async def event_generator():
              while True:

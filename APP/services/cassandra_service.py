@@ -126,6 +126,7 @@ class CassandraManager:
         CREATE TABLE IF NOT EXISTS {self.KEYSPACE}.documents (
             document_id UUID PRIMARY KEY,
             FILE_name TEXT  -- Text extracted from the PDF
+            
         );
         """
         self.session.execute(create_documents_table)

@@ -322,6 +322,8 @@ class AgentInterface:
             search_type="mmr",
             search_kwargs={'k': 5, 'fetch_k': 50}
         )
+        bm25_retriever=BM25Retriever.from_documents(self.documents)
+        
         
         ensemble_retriever_new = EnsembleRetriever(retrievers=[parent_retriever, retrieval],
                                         weights=[0.4, 0.6])
@@ -330,9 +332,9 @@ class AgentInterface:
          , llm=self.llm
         )
         
-
-        
         ensemble_retriever = EnsembleRetriever(retrievers=[ensemble_retriever_new, multi_retriever],
+                                        weights=[0.4, 0.6])
+        ensemble_retriever = EnsembleRetriever(retrievers=[ensemble_retriever, bm25_retriever],
                                         weights=[0.4, 0.6])
         compression_retriever = ContextualCompressionRetriever(
         base_compressor=self.compressor,
@@ -379,8 +381,6 @@ class AgentInterface:
             None
         """
         try:
-            
-            
             self.hf_embedding=HuggingFaceEmbeddings(
                 model_name="all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
@@ -391,15 +391,9 @@ class AgentInterface:
             self.astra_db_store :Cassandra = Cassandra(embedding=self.hf_embedding, session=self.cassandraInterface.session, keyspace=self.cassandraInterface.KEYSPACE, table_name="vectores_new")
             
             #self.astra_db_store.clear()
-            
-            
-            
         except Exception as e:
             print(f"Error initializing AstraDBVectorStore: {e}")
-
             self.hf_embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")
-
-
             self.astra_db_store = AstraDBVectorStore(
             collection_name="langchain_unstructured",
             embedding=self.hf_embedding,
@@ -443,7 +437,8 @@ class AgentInterface:
         )
 
         return chain
-    def retrieval_chain(self,user:User = User(
+    def retrieval_chain(self,
+                        user:User = User(
         username="aziz",
         email="aziz@gmail.com",
         his_job="data scientist",
@@ -475,9 +470,9 @@ class AgentInterface:
         Role: {job_user}
         """
         self.prompt = part_prompt + """
-     
-
-    You are Mohamed Aziz Werghi. Your task is to answer questions based on the provided context, ensuring that responses are **accurate, well-structured, and visually appealing**.
+    You are  a MF AI Agent. Your task is to answer questions 
+    based on the provided context, ensuring that responses are 
+    **accurate, well-structured, and visually appealing**.
 
     **Context:**  
     {context}  
@@ -531,7 +526,7 @@ class AgentInterface:
 
     
     def answer_question(self,question:str,user,request,session_id,suggestions=None,time_sended_question=None
-                        ,complete_agent=None):
+                        ):
         """
         Process a user question and return an answer using either cached responses or generating a new one.
 
@@ -565,8 +560,7 @@ class AgentInterface:
             final_answer=None
 
             try:
-                if self.final_agent is None:
-                    complete_agent(user)
+                
                 final_answer = self.final_agent.run(question_enhanced) 
                 if (question,final_answer) not in self.memory_llm:
                     self.memory_llm.append((question, final_answer))

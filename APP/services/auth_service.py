@@ -41,7 +41,6 @@ class AuthService:
          
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.cassandra_intra=cassandra_intra
-        self.agent=agent
 
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
     def verify_password(self,plain_password, hashed_password):
@@ -88,7 +87,7 @@ class AuthService:
         )
         response.set_cookie(key="auth_token", value=access_token)
         the_user=await self.get_current_user(access_token)
-        self.agent.chain=self.agent.retrieval_chain(the_user)
+        #self.agent.chain=self.agent.retrieval_chain(the_user)
         return Token(access_token=access_token, token_type="bearer", the_user=the_user.username,his_job=the_user.his_job)
 
     def create_access_token(self,data: dict, expires_delta: timedelta | None = None):
